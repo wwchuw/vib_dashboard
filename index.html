@@ -221,6 +221,7 @@ td.tags{white-space:normal;line-height:2}
         </div>
         <div class="hint" id="f1DateHint"></div>
       </div>
+      <div class="f"><label>Station</label><select id="f1Station"><option value="ALL">ทั้งหมด</option></select></div>
       <div class="f"><label>ประเภทเครื่องจักร</label><select id="f1Machine"><option value="ALL">ทั้งหมด</option><option value="Pump">Pump</option><option value="Motor">Motor</option></select></div>
       <div class="f">
         <label>เกณฑ์ประเมิน Zone</label>
@@ -473,6 +474,10 @@ function onData(payload){
 
 /* ===================== Tab 1 ===================== */
 function initTab1Filters(){
+  const stSel = el('f1Station');
+  stSel.innerHTML = '<option value="ALL">ทั้งหมด</option>' +
+    DATA.stations.map(function(s){ return '<option value="'+s+'">'+s+'</option>'; }).join('');
+
   var sel = el('f1Date');
   sel.innerHTML = ROUNDS.slice().reverse().map(function(r){
     return '<option value="'+r.idx+'">'+r.label+'</option>';
@@ -488,9 +493,10 @@ function stepRound(delta){
   renderTab1();
 }
 
-function snapshot(ri, machineFilter, cat){
+function snapshot(ri, stationFilter, machineFilter, cat){
   var out = [];
   IDX.forEach(function(e){
+    if (stationFilter !== 'ALL' && e.st !== stationFilter) return;
     if (machineFilter !== 'ALL' && e.mc !== machineFilter) return;
     var dt = latestInRound(e, ri);
     if (!dt) return;
@@ -503,9 +509,10 @@ function snapshot(ri, machineFilter, cat){
 function renderTab1(){
   var ri    = Number(el('f1Date').value);
   var round = ROUNDS[ri];
+  var sf    = el('f1Station').value;
   var mf    = el('f1Machine').value;
   var cat   = S.cat1;
-  var snap  = snapshot(ri, mf, cat);
+  var snap  = snapshot(ri, sf, mf, cat);
 
   el('f1Prev').disabled = (ri <= 0);
   el('f1Next').disabled = (ri >= ROUNDS.length-1);
@@ -516,9 +523,10 @@ function renderTab1(){
   snap.forEach(function(s){ cnt[s.zone]++; });
   var total = snap.length;
   var pct = function(n){ return total ? Math.round(n/total*100) + '%' : '–'; };
+  var scopeText = (sf==='ALL'?'ทุกสถานี':sf) + ' · ' + (mf==='ALL'?'Pump และ Motor':mf);
   el('kpis').innerHTML =
     '<div class="kpi total"><div class="t">เครื่องจักรที่วัดได้</div><div class="v">'+total+'</div>'+
-      '<div class="p">'+ (mf==='ALL'?'Pump และ Motor':mf) +' · '+ round.label +'</div></div>' +
+      '<div class="p">'+ scopeText +' · '+ round.label +'</div></div>' +
     ['A','B','C','D'].map(function(z){
       var name = { A:'Good', B:'Acceptable', C:'Unsatisfactory', D:'Unacceptable' }[z];
       return '<div class="kpi '+z.toLowerCase()+'"><div class="t"><span class="dot" style="background:'+ZCOLOR[z]+'"></span>Zone '+z+'</div>'+
@@ -569,7 +577,7 @@ function renderTab1(){
   });
   renderCondDetail();
 
-  renderWatch(ri, mf, cat);
+  renderWatch(ri, sf, mf, cat);
 }
 
 function renderCondDetail(){
@@ -592,10 +600,11 @@ function renderCondDetail(){
 }
 
 /* ---------- รายการเฝ้าระวัง ---------- */
-function buildWatch(ri, machineFilter, cat){
+function buildWatch(ri, stationFilter, machineFilter, cat){
   var out = [];
 
   IDX.forEach(function(e){
+    if (stationFilter !== 'ALL' && e.st !== stationFilter) return;
     if (machineFilter !== 'ALL' && e.mc !== machineFilter) return;
     var hist = historyUpTo(e, ri);
     if (!hist.length) return;
@@ -646,8 +655,8 @@ function buildWatch(ri, machineFilter, cat){
   return out;
 }
 
-function renderWatch(ri, machineFilter, cat){
-  var list = buildWatch(ri, machineFilter, cat);
+function renderWatch(ri, stationFilter, machineFilter, cat){
+  var list = buildWatch(ri, stationFilter, machineFilter, cat);
   S.watchList = list;
 
   var shownTags = WATCH.filter(function(w){ return w.id !== 'missed' || WL_SHOW_MISSED; });
@@ -667,7 +676,7 @@ function renderWatch(ri, machineFilter, cat){
   Array.prototype.forEach.call(document.querySelectorAll('[data-wl]'), function(b){
     b.onclick = function(){
       S.watchPick = (b.dataset.wl === 'ALL' || S.watchPick === b.dataset.wl) ? null : b.dataset.wl;
-      renderWatch(Number(el('f1Date').value), el('f1Machine').value, S.cat1);
+      renderWatch(Number(el('f1Date').value), el('f1Station').value, el('f1Machine').value, S.cat1);
     };
   });
 
@@ -929,6 +938,7 @@ el('f1Date').onchange    = function(){ S.condPick = null; S.watchPick = null; re
 el('f1Prev').onclick     = function(){ stepRound(-1); };
 el('f1Next').onclick     = function(){ stepRound(1); };
 el('f1Last').onclick     = function(){ el('f1Date').value = String(ROUNDS.length-1); S.condPick = null; S.watchPick = null; renderTab1(); };
+el('f1Station').onchange  = function(){ S.condPick = null; S.watchPick = null; renderTab1(); };
 el('f1Machine').onchange = function(){ S.condPick = null; renderTab1(); };
 el('f2Station').onchange = function(){ refreshMachineOpts(); renderTab2(); };
 el('f2Machine').onchange = function(){ refreshNumberOpts(); renderTab2(); };
