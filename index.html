@@ -29,9 +29,12 @@ body{
 .wrap{max-width:1240px;margin:0 auto;padding:18px 18px 48px}
 
 /* ---------- Header ---------- */
-.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
-.head h1{font-size:22px;font-weight:700;margin:0;letter-spacing:.2px}
-.head .sub{font-size:12px;color:var(--gray-500);margin-top:2px}
+.head{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.eyebrow{font-size:12px;font-weight:600;color:var(--blue-700);letter-spacing:.04em;margin-bottom:8px}
+.head h1{font-size:clamp(22px,3.2vw,30px);font-weight:700;margin:4px 0 6px;letter-spacing:-0.01em}
+.head .sub{font-size:13px;color:var(--gray-700);margin-top:0;max-width:70ch}
+.meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12px;color:var(--gray-500)}
+.meta b{color:var(--gray-700);font-weight:600}
 .head .right{display:flex;align-items:center;gap:10px}
 .btn{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--blue-700);background:var(--white);
   border:1px solid var(--gray-300);border-radius:100px;padding:7px 14px;cursor:pointer;transition:.15s}
@@ -191,12 +194,19 @@ td.tags{white-space:normal;line-height:2}
 <div class="wrap">
 
   <div class="head">
-    <div>
+    <header>
+      <div class="eyebrow">ระบบเฝ้าระวังการสั่นสะเทือน</div>
       <h1>Vibration Dashboard</h1>
-      <div class="sub">การตรวจวัดการสั่นสะเทือนตามมาตรฐาน ISO 20816-3 (Motor) และ ISO 10816-7 (Pump)</div>
-    </div>
+      <p class="sub">การตรวจวัดการสั่นสะเทือนตามมาตรฐาน ISO 20816-3 (Motor) และ ISO 10816-7 (Pump)</p>
+      <div class="meta">
+        <span>รายการ <b id="m-rec">–</b></span>
+        <span>เครื่องจักร <b id="m-eq">–</b></span>
+        <span>สถานี <b id="m-st">–</b></span>
+        <span>ช่วงเวลา <b id="m-range">–</b></span>
+        <span id="updated"></span>
+      </div>
+    </header>
     <div class="right">
-      <span class="sub" id="updated"></span>
       <button class="btn" id="btnRefresh">โหลดข้อมูลใหม่</button>
     </div>
   </div>
@@ -461,11 +471,17 @@ function onData(payload){
     return;
   }
   if (DATA.points && DATA.points.length) POINTS = DATA.points;
-  el('updated').textContent = 'อัปเดต ' + DATA.updatedAt;
   DATA.months = monthsOf(DATA.dates);
   DATE2R = {};
   ROUNDS = buildRounds(DATA.dates);
   buildIndex();
+
+  el('m-rec').textContent = DATA.rows.length;
+  el('m-eq').textContent = IDX.size;
+  el('m-st').textContent = DATA.stations.length;
+  el('m-range').textContent = DATA.dates.length ? (DATA.dates[0] + ' – ' + DATA.dates[DATA.dates.length-1]) : '–';
+  el('updated').textContent = 'อัปเดตล่าสุด ' + DATA.updatedAt;
+
   initTab1Filters();
   initTab2Filters();
   renderTab1();
