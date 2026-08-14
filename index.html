@@ -1,597 +1,942 @@
 <!DOCTYPE html>
 <html lang="th">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Alignment Record Dashboard</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vibration Dashboard</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{
-  --blue:#2176c7; --blue-dk:#175a9c; --blue-lt:#eaf3fc; --blue-lt2:#d6ebfa;
-  --ink:#1b2430; --ink2:#5b6675; --ink3:#8b95a3;
-  --line:#e3e8ee; --line2:#eef2f6; --panel:#ffffff; --bg:#f7f9fc;
-  --good:#1c9c6b; --good-lt:#e6f7ef;
-  --watch:#e08a1e; --watch-lt:#fdf1e0;
-  --fail:#df4b45; --fail-lt:#fdecec;
-  --font:'Kanit',sans-serif;
-  --radius:12px; --radius-sm:8px;
+  /* ธีมเดียวกับ Alignment Dashboard: น้ำเงิน #2176c7 / เทา / ขาว */
+  --blue-900:#1b2430; --blue-700:#2176c7; --blue-500:#4a9fe0; --blue-100:#eaf3fc; --blue-50:#f7f9fc;
+  --gray-700:#5b6675; --gray-500:#8b95a3; --gray-300:#e3e8ee; --gray-100:#eef2f6;
+  --white:#FFFFFF;
+  --zA:#1c9c6b; --zB:#2176c7; --zC:#e08a1e; --zD:#df4b45;
+  --zA-bg:#e6f7ef; --zB-bg:#eaf3fc; --zC-bg:#fdf1e0; --zD-bg:#fdecec;
+  --radius:12px;
   --shadow:0 1px 2px rgba(20,40,70,.05), 0 4px 14px rgba(20,40,70,.05);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:14px;line-height:1.6;
-  font-weight:400;-webkit-font-smoothing:antialiased}
-.wrap{max-width:1180px;margin:0 auto;padding:24px 18px 60px}
-
-/* header */
-header{margin-bottom:20px}
-.eyebrow{font-size:12px;font-weight:600;color:var(--blue);letter-spacing:.04em}
-h1{font-size:clamp(22px,3.2vw,30px);font-weight:700;margin:4px 0 6px;color:var(--ink)}
-.sub{color:var(--ink2);font-size:13px;max-width:70ch}
-.meta{display:flex;flex-wrap:wrap;gap:14px;margin-top:10px;font-size:12px;color:var(--ink3)}
-.meta b{color:var(--ink2);font-weight:600}
-#gen-time{color:var(--ink3)}
-
-/* status / loading / error */
-.statusbar{display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:var(--radius-sm);
-  font-size:12.5px;margin-bottom:16px}
-.statusbar.loading{background:var(--blue-lt);color:var(--blue-dk)}
-.statusbar.err{background:var(--fail-lt);color:var(--fail)}
-.spin{width:13px;height:13px;border:2px solid rgba(33,118,199,.25);border-top-color:var(--blue);
-  border-radius:50%;animation:sp .7s linear infinite;flex-shrink:0}
-@keyframes sp{to{transform:rotate(360deg)}}
-
-/* filters */
-.filters{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-  padding:14px 16px;margin-bottom:18px}
-.frow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
-.frow:last-child{margin-bottom:0}
-.flabel{font-size:11.5px;font-weight:600;color:var(--ink3);min-width:64px}
-.chip{font-family:var(--font);font-size:12.5px;font-weight:500;padding:6px 13px;
-  border:1px solid var(--line);background:var(--bg);color:var(--ink2);cursor:pointer;
-  border-radius:100px;transition:.12s}
-.chip:hover{border-color:var(--blue);color:var(--blue)}
-.chip[aria-pressed="true"]{background:var(--blue);color:#fff;border-color:var(--blue)}
-.chip:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-.ftools{margin-left:auto;display:flex;gap:8px}
-.btn-sm{font-family:var(--font);font-size:12.5px;font-weight:600;padding:6px 14px;
-  border-radius:100px;border:1px solid var(--line);background:var(--panel);color:var(--ink2);
-  cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:.12s}
-.btn-sm:hover{border-color:var(--blue);color:var(--blue)}
-.btn-sm.primary{background:var(--blue);border-color:var(--blue);color:#fff}
-.btn-sm.primary:hover{background:var(--blue-dk)}
-
-/* kpi */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
-  padding:16px}
-.kpi .l{font-size:11.5px;font-weight:600;color:var(--ink3)}
-.kpi .v{font-size:30px;font-weight:700;line-height:1.15;margin-top:5px;color:var(--ink)}
-.kpi .n{font-size:11px;color:var(--ink3);margin-top:3px}
-.kpi.k-good .v{color:var(--good)} .kpi.k-watch .v{color:var(--watch)}
-.kpi.k-fail .v{color:var(--fail)} .kpi.k-blue .v{color:var(--blue)}
-.kpi.k-fail:hover{border-color:var(--fail);box-shadow:0 0 0 3px var(--fail-lt)}
-
-/* sections */
-section{margin-bottom:26px}
-.shead{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:10px}
-h2{font-size:16px;font-weight:600;margin:0;color:var(--ink)}
-.snote{font-size:12.5px;color:var(--ink3);margin:-4px 0 12px;max-width:78ch}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
-
-/* stations */
-.stn{display:grid;grid-template-columns:70px 1fr 170px;gap:12px;align-items:center;padding:8px 0}
-.stn:not(:last-child){border-bottom:1px solid var(--line2)}
-.stn .nm{font-size:13px;font-weight:600;color:var(--ink)}
-.stack{display:flex;height:18px;border-radius:5px;overflow:hidden;background:var(--line2)}
-.stack div{height:100%}
-.s-ftr{background:var(--good)} .s-rw{background:var(--watch)} .s-na{background:var(--fail)}
-.stn .rt{font-size:11.5px;color:var(--ink2);text-align:right}
-.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:11.5px;color:var(--ink2);margin-top:12px}
-.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
-
-/* slope chart */
-.slopewrap{overflow-x:auto}
-svg.slope{display:block;min-width:520px;width:100%;height:320px}
-svg.slope text{font-family:var(--font);font-size:10.5px;fill:var(--ink2)}
-svg.slope .axl{stroke:var(--line);stroke-width:1}
-svg.slope .limline{stroke:var(--ink3);stroke-width:1.4;stroke-dasharray:4 3}
-svg.slope .ln{stroke-width:2;fill:none;opacity:.85;cursor:pointer}
-svg.slope .ln:hover{stroke-width:3.6;opacity:1}
-svg.slope .dt{r:3.6}
-
-/* axis cards */
-.axgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
-.axbox{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:14px}
-.axbox .t{font-size:11.5px;font-weight:600;color:var(--ink3)}
-.axbox .n{font-size:26px;font-weight:700;margin:4px 0 2px}
-.axbox .n.hit{color:var(--fail)} .axbox .n.ok{color:var(--good)}
-.axbox .s{font-size:11.5px;color:var(--ink3)}
-.axbox .mini{margin-top:9px;height:8px;background:var(--line2);border-radius:4px;position:relative;overflow:visible}
-.axbox .mini .f{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
-.axbox .mini .lim{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
-
-/* tolerance bar (row-level) */
-.tb{position:relative;height:12px;background:var(--line2);border-radius:6px;overflow:visible}
-.tb .fill{position:absolute;left:0;top:0;bottom:0;border-radius:6px}
-.tb .lim{position:absolute;left:50%;top:-2px;bottom:-2px;width:2px;background:var(--ink)}
-.tbrow{display:grid;grid-template-columns:1fr 50px;gap:8px;align-items:center}
-.tbval{font-size:11.5px;text-align:right;font-weight:600}
-.c-good{background:var(--good)} .c-watch{background:var(--watch)} .c-fail{background:var(--fail)}
-.t-good{color:var(--good)} .t-watch{color:var(--watch)} .t-fail{color:var(--fail)}
-.rawvals{font-size:10px;color:var(--ink3);margin-top:4px;white-space:nowrap;letter-spacing:.01em}
-.rawvals b{color:var(--ink2);font-weight:500}
-
-/* table */
-.tbar2{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-bottom:10px}
-.search{flex:1;min-width:180px;font-family:var(--font);font-size:13px;padding:8px 13px;
-  border:1px solid var(--line);border-radius:100px;outline:none;background:var(--panel)}
-.search:focus{border-color:var(--blue)}
-.tcount{font-size:12px;color:var(--ink3);white-space:nowrap}
-.tblwrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
-table{border-collapse:collapse;width:100%;min-width:760px}
-th{font-size:11px;font-weight:600;color:var(--ink3);text-align:left;padding:10px 12px;
-  border-bottom:1px solid var(--line);white-space:nowrap;cursor:pointer;user-select:none;background:var(--bg)}
-th:hover{color:var(--blue)}
-th .ar{color:var(--blue)}
-td{padding:9px 12px;border-bottom:1px solid var(--line2);vertical-align:middle;font-size:13px}
-tr:last-child td{border-bottom:0}
-tr.r:hover{background:var(--blue-lt)}
-.eqname{font-weight:500}
-.docid{font-size:11px;color:var(--ink3)}
-.tag{font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;white-space:nowrap}
-.tag.ftr{color:var(--good);background:var(--good-lt)}
-.tag.rework{color:var(--watch);background:var(--watch-lt)}
-.tag.noadj{color:var(--fail);background:var(--fail-lt)}
-.copied{font-size:12px;color:var(--ink3)}
-
-.pager{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;
-  border-top:1px solid var(--line);font-size:12px;color:var(--ink3);flex-wrap:wrap;gap:8px}
-.pgbtns{display:flex;gap:4px}
-.pgbtn{padding:5px 11px;border-radius:7px;border:1px solid var(--line);background:var(--panel);
-  color:var(--ink2);font-size:12px;cursor:pointer;font-family:var(--font)}
-.pgbtn:hover{border-color:var(--blue);color:var(--blue)}
-.pgbtn.active{background:var(--blue);border-color:var(--blue);color:#fff}
-.pgbtn:disabled{opacity:.4;cursor:not-allowed}
-
-.empty{padding:30px;text-align:center;color:var(--ink3);font-size:13px}
-footer{border-top:1px solid var(--line);padding-top:14px;font-size:11.5px;color:var(--ink3);line-height:1.7}
-
-@media(max-width:820px){
-  .kpis{grid-template-columns:repeat(2,1fr)}
-  .axgrid{grid-template-columns:repeat(2,1fr)}
-  .stn{grid-template-columns:56px 1fr;row-gap:5px}
-  .stn .rt{grid-column:1/-1;text-align:left}
-  .ftools{margin-left:0;width:100%}
+body{
+  font-family:'Kanit',system-ui,sans-serif; font-weight:400;
+  background:var(--white); color:var(--blue-900); font-size:14px; line-height:1.5;
+  -webkit-font-smoothing:antialiased;
 }
-@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.wrap{max-width:1240px;margin:0 auto;padding:18px 18px 48px}
+
+/* ---------- Header ---------- */
+.head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:14px}
+.head h1{font-size:22px;font-weight:700;margin:0;letter-spacing:.2px}
+.head .sub{font-size:12px;color:var(--gray-500);margin-top:2px}
+.head .right{display:flex;align-items:center;gap:10px}
+.btn{font-family:inherit;font-size:12.5px;font-weight:600;color:var(--blue-700);background:var(--white);
+  border:1px solid var(--gray-300);border-radius:100px;padding:7px 14px;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--blue-50);border-color:var(--blue-700)}
+.btn:focus-visible{outline:2px solid var(--blue-700);outline-offset:2px}
+
+/* ---------- Tabs ---------- */
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--gray-300);margin-bottom:18px}
+.tab{font-family:inherit;font-size:14px;font-weight:500;color:var(--gray-500);background:none;border:0;
+  border-bottom:2px solid transparent;padding:10px 16px;cursor:pointer;margin-bottom:-1px;transition:.15s}
+.tab:hover{color:var(--blue-700)}
+.tab.on{color:var(--blue-700);font-weight:600;border-bottom-color:var(--blue-700)}
+.page{display:none}
+.page.on{display:block}
+
+/* ---------- Filter bar ---------- */
+.filters{display:flex;flex-wrap:wrap;gap:14px 18px;align-items:flex-end;
+  background:var(--blue-50);border:1px solid var(--blue-100);border-radius:var(--radius);padding:14px 16px;margin-bottom:18px}
+.f{display:flex;flex-direction:column;gap:5px}
+.f label{font-size:11.5px;color:var(--gray-500);font-weight:600;letter-spacing:.3px}
+select{font-family:inherit;font-size:13px;font-weight:400;color:var(--blue-900);background:var(--white);
+  border:1px solid var(--gray-300);border-radius:8px;padding:7px 30px 7px 11px;min-width:132px;cursor:pointer;
+  appearance:none;background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238b95a3' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 11px center}
+select:focus-visible{outline:2px solid var(--blue-700);outline-offset:1px}
+.seg{display:inline-flex;background:var(--white);border:1px solid var(--gray-300);border-radius:100px;padding:2px}
+.seg button{font-family:inherit;font-size:12.5px;font-weight:500;color:var(--gray-500);background:none;border:0;
+  padding:6px 14px;border-radius:100px;cursor:pointer;transition:.15s;white-space:nowrap}
+.seg button.on{background:var(--blue-700);color:var(--white);font-weight:600}
+.f .hint{font-size:10.5px;color:var(--gray-500)}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi{background:var(--white);border:1px solid var(--gray-300);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.kpi .t{font-size:11.5px;font-weight:600;color:var(--gray-500);display:flex;align-items:center;gap:7px}
+.kpi .v{font-size:30px;font-weight:700;line-height:1.2;margin-top:5px}
+.kpi .p{font-size:11px;color:var(--gray-500);margin-top:3px}
+.kpi.total{background:var(--blue-700);border-color:var(--blue-700)}
+.kpi.total .t,.kpi.total .p{color:#CFE4F7}
+.kpi.total .v{color:var(--white)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block}
+.kpi.a .v{color:var(--zA)} .kpi.b .v{color:var(--zB)} .kpi.c .v{color:var(--zC)} .kpi.d .v{color:var(--zD)}
+
+/* ---------- Cards / grid ---------- */
+.grid2{display:grid;grid-template-columns:1.05fr .95fr;gap:16px;align-items:start}
+.card{background:var(--white);border:1px solid var(--gray-300);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
+.card>h2{font-size:15px;font-weight:600;margin:0;padding:14px 16px 12px;border-bottom:1px solid var(--gray-100);
+  display:flex;align-items:center;justify-content:space-between;gap:10px}
+.card>h2 span.note{font-size:11.5px;color:var(--gray-500);font-weight:400}
+.card .body{padding:14px 16px}
+
+/* ---------- Table ---------- */
+table{width:100%;border-collapse:collapse}
+th{font-size:11px;font-weight:600;color:var(--gray-500);text-align:left;padding:10px 12px;
+  border-bottom:1px solid var(--gray-300);background:var(--blue-50);white-space:nowrap}
+td{font-size:13px;padding:9px 12px;border-bottom:1px solid var(--gray-100);white-space:nowrap}
+tr:last-child td{border-bottom:0}
+tbody tr:hover{background:var(--blue-50)}
+td.num{text-align:right;font-variant-numeric:tabular-nums;font-weight:500}
+td.rank{color:var(--gray-500);width:34px}
+.badge{display:inline-block;min-width:22px;text-align:center;font-size:11px;font-weight:600;
+  padding:3px 9px;border-radius:100px}
+.badge.A{background:var(--zA-bg);color:var(--zA)}
+.badge.B{background:var(--zB-bg);color:var(--zB)}
+.badge.C{background:var(--zC-bg);color:var(--zC)}
+.badge.D{background:var(--zD-bg);color:var(--zD)}
+
+/* ---------- Condition list ---------- */
+.cond-list{display:flex;flex-direction:column;gap:8px;margin-top:14px}
+.cond{display:flex;align-items:center;gap:10px;width:100%;text-align:left;font-family:inherit;font-size:13px;
+  background:var(--white);border:1px solid var(--gray-300);border-radius:10px;padding:9px 12px;cursor:pointer;transition:.15s}
+.cond:hover{background:var(--blue-50);border-color:var(--blue-700)}
+.cond.on{background:var(--blue-50);border-color:var(--blue-700)}
+.cond .bar{width:4px;height:26px;border-radius:3px}
+.cond .lb{flex:1;color:var(--blue-900);font-weight:500}
+.cond .lb small{display:block;font-size:11px;color:var(--gray-500);font-weight:400}
+.cond .ct{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.detail{margin-top:14px;border-top:1px solid var(--gray-100);padding-top:12px}
+.detail h3{font-size:12.5px;font-weight:600;margin:0 0 8px;color:var(--gray-700)}
+.scroll{max-height:300px;overflow:auto}
+
+/* ---------- Snappoint ---------- */
+.snap{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
+.sp{border:1px solid var(--gray-300);border-radius:var(--radius);padding:12px 14px;background:var(--white)}
+.sp .n{font-size:11px;font-weight:600;color:var(--gray-500);letter-spacing:.4px}
+.sp .v{font-size:24px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.3}
+.sp .u{font-size:11px;color:var(--gray-500);font-weight:400;margin-left:3px}
+.sp .foot{flex-direction:row;justify-content:space-between;align-items:center;margin-top:5px;display:flex}
+.sp .foot .dl{font-size:11px;color:var(--gray-500)}
+.sp.A{border-top:3px solid var(--zA)} .sp.B{border-top:3px solid var(--zB)}
+.sp.C{border-top:3px solid var(--zC)} .sp.D{border-top:3px solid var(--zD)}
+
+/* ---------- Chips ---------- */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{font-family:inherit;font-size:12.5px;font-weight:500;color:var(--gray-700);background:var(--white);
+  border:1px solid var(--gray-300);border-radius:100px;padding:6px 13px;cursor:pointer;transition:.15s}
+.chip:hover{border-color:var(--blue-700);color:var(--blue-700)}
+.chip.on{background:var(--blue-700);border-color:var(--blue-700);color:var(--white)}
+
+/* ---------- Round nav ---------- */
+.navrow{display:flex;align-items:center;gap:6px}
+.navbtn{font-family:inherit;font-size:13px;color:var(--blue-700);background:var(--white);border:1px solid var(--gray-300);
+  border-radius:8px;width:32px;height:34px;cursor:pointer;transition:.15s;line-height:1}
+.navbtn:hover:not(:disabled){background:var(--blue-50);border-color:var(--blue-700)}
+.navbtn:disabled{color:var(--gray-300);cursor:default}
+.navbtn.wide{width:auto;padding:0 11px;font-size:12px}
+
+/* ---------- Watchlist ---------- */
+.wl-head{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.wl-chip{font-family:inherit;font-size:12.5px;font-weight:500;background:var(--white);border:1px solid var(--gray-300);
+  border-radius:100px;padding:6px 13px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;color:var(--gray-700)}
+.wl-chip:hover{border-color:var(--blue-700)}
+.wl-chip.on{border-color:var(--blue-700);background:var(--blue-50);color:var(--blue-900);font-weight:600}
+.wl-chip b{font-weight:700;font-variant-numeric:tabular-nums}
+.wl-chip i.sw{width:8px;height:8px;border-radius:2px;display:inline-block}
+.tag{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:100px;margin-right:5px;white-space:nowrap}
+.tag.recur{background:var(--zD-bg);color:#B33A3A}
+.tag.rising{background:var(--zC-bg);color:#B57A16}
+.tag.prewarn{background:#F3EDFB;color:#7A4FB5}
+.tag.missed{background:var(--gray-100);color:var(--gray-700)}
+td.tags{white-space:normal;line-height:2}
+.wl-note{font-size:11.5px;color:var(--gray-500);margin-top:10px;line-height:1.7}
+.chart-box{position:relative;height:280px}
+.chart-box.tall{height:340px}
+.legend-note{font-size:11.5px;color:var(--gray-500);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
+.legend-note i{display:inline-block;width:16px;height:0;border-top:2px dashed currentColor;vertical-align:middle;margin-right:5px}
+.empty{color:var(--gray-500);font-size:13px;padding:24px 0;text-align:center}
+.mt16{margin-top:16px}
+
+/* ---------- Loading / error ---------- */
+#loading{position:fixed;inset:0;background:rgba(255,255,255,.94);display:flex;align-items:center;justify-content:center;
+  flex-direction:column;gap:12px;z-index:50}
+.spin{width:26px;height:26px;border:2.5px solid var(--blue-100);border-top-color:var(--blue-700);border-radius:50%;
+  animation:sp .8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+#loading p{font-size:13px;color:var(--gray-500);margin:0}
+.err{background:var(--zD-bg);color:#8E2C2C;border:1px solid #F0C4C4;border-radius:var(--radius);padding:12px 14px;font-size:13px}
+
+@media (max-width:1000px){
+  .kpis{grid-template-columns:repeat(3,1fr)}
+  .grid2{grid-template-columns:1fr}
+  .snap{grid-template-columns:repeat(3,1fr)}
+}
+@media (max-width:620px){
+  .wrap{padding:14px 12px 40px}
+  .kpis{grid-template-columns:repeat(2,1fr)}
+  .snap{grid-template-columns:repeat(2,1fr)}
+  select{min-width:118px}
+}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
 <body>
+
+<div id="loading"><div class="spin"></div><p>กำลังโหลดข้อมูลจาก Google Sheets…</p></div>
+
 <div class="wrap">
 
-<header>
-  <div class="eyebrow">ส่วนเครื่องสูบน้ำ 1 </div>
-  <h1>Alignment Dashboard</h1>
-  <p class="sub">ติดตามการตั้งศูนย์เพลาPump & Motor </p>
-  <div class="meta">
-    <span>รายการ <b id="m-rec">–</b></span>
-    <span>เครื่องจักร <b id="m-eq">–</b></span>
-    <span>สถานี <b id="m-st">–</b></span>
-    <span>ช่วงเวลา <b id="m-range">–</b></span>
-    <span id="gen-time"></span>
+  <div class="head">
+    <div>
+      <h1>Vibration Dashboard</h1>
+      <div class="sub">การตรวจวัดการสั่นสะเทือนตามมาตรฐาน ISO 20816-3 (Motor) และ ISO 10816-7 (Pump)</div>
+    </div>
+    <div class="right">
+      <span class="sub" id="updated"></span>
+      <button class="btn" id="btnRefresh">โหลดข้อมูลใหม่</button>
+    </div>
   </div>
-</header>
 
-<div id="statusbar" class="statusbar loading"><div class="spin"></div><span id="status-text">กำลังโหลดข้อมูล...</span></div>
+  <div id="errBox"></div>
 
-<div id="dashboard-content" style="display:none">
-
-<div class="filters">
-  <div class="frow"><span class="flabel">สถานี</span><span id="f-station"></span></div>
-  <div class="frow"><span class="flabel">ปี</span><span id="f-year"></span></div>
-  <div class="frow">
-    <span class="flabel">รูปแบบงาน</span><span id="f-cat"></span>
-    <span class="ftools">
-      <button class="btn-sm" id="btn-clear" type="button">ล้างตัวกรอง</button>
-      <button class="btn-sm primary" id="btn-refresh" type="button">รีเฟรชข้อมูล</button>
-    </span>
+  <div class="tabs">
+    <button class="tab on" data-page="p1">ภาพรวมทั้งหมด</button>
+    <button class="tab" data-page="p2">รายเครื่องจักร</button>
   </div>
+
+  <!-- ============ TAB 1 ============ -->
+  <section class="page on" id="p1">
+
+    <div class="filters">
+      <div class="f"><label>รอบการตรวจวัด</label>
+        <div class="navrow">
+          <button class="navbtn" id="f1Prev" title="รอบก่อนหน้า">‹</button>
+          <select id="f1Date"></select>
+          <button class="navbtn" id="f1Next" title="รอบถัดไป">›</button>
+          <button class="navbtn wide" id="f1Last" title="ไปรอบล่าสุด">ล่าสุด</button>
+        </div>
+        <div class="hint" id="f1DateHint"></div>
+      </div>
+      <div class="f"><label>ประเภทเครื่องจักร</label><select id="f1Machine"><option value="ALL">ทั้งหมด</option><option value="Pump">Pump</option><option value="Motor">Motor</option></select></div>
+      <div class="f">
+        <label>เกณฑ์ประเมิน Zone</label>
+        <div class="seg" id="f1Cat">
+          <button data-cat="cat2" class="on">Zone_cat2</button>
+          <button data-cat="cat1">Zone_cat1</button>
+        </div>
+        <div class="hint" id="f1CatHint">Category 2 – Non-hazardous liquids</div>
+      </div>
+    </div>
+
+    <div class="kpis" id="kpis"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h2>Top 10 เครื่องจักรค่าสั่นสะเทือนสูงสุด <span class="note" id="topNote"></span></h2>
+        <div id="topWrap"></div>
+      </div>
+
+      <div class="card">
+        <h2>เปรียบเทียบสถานะกับการวัดครั้งก่อน <span class="note" id="condNote"></span></h2>
+        <div class="body">
+          <div class="chart-box" style="height:210px"><canvas id="condChart"></canvas></div>
+          <div class="cond-list" id="condList"></div>
+          <div class="detail" id="condDetail" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card mt16">
+      <h2>รายการเฝ้าระวัง <span class="note" id="wlNote"></span></h2>
+      <div class="body">
+        <div class="wl-head" id="wlChips"></div>
+        <div id="wlWrap"></div>
+        <div class="wl-note" id="wlLegend"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 2 ============ -->
+  <section class="page" id="p2">
+
+    <div class="filters">
+      <div class="f"><label>Station</label><select id="f2Station"></select></div>
+      <div class="f"><label>ประเภทเครื่องจักร</label><select id="f2Machine"></select></div>
+      <div class="f"><label>Number</label><select id="f2Number"></select></div>
+      <div class="f"><label>รอบการตรวจวัด</label><select id="f2Date"></select></div>
+      <div class="f">
+        <label>เกณฑ์ประเมิน Zone</label>
+        <div class="seg" id="f2Cat">
+          <button data-cat="cat2" class="on">Zone_cat2</button>
+          <button data-cat="cat1">Zone_cat1</button>
+        </div>
+        <div class="hint" id="f2CatHint">Category 2 – Non-hazardous liquids</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>ค่าล่าสุดของจุดวัดทั้ง 6 จุด <span class="note" id="snapNote"></span></h2>
+      <div class="body"><div class="snap" id="snap"></div></div>
+    </div>
+
+    <div class="card mt16">
+      <h2>แนวโน้มค่าสั่นสะเทือน <span class="note" id="trendNote"></span></h2>
+      <div class="body">
+        <div class="chips" id="pointChips"></div>
+        <div class="chips mt16" id="rangeChips"></div>
+        <div class="chart-box tall mt16"><canvas id="trendChart"></canvas></div>
+        <div class="legend-note">
+          <span style="color:var(--zC)"><i></i>Warning – เริ่มเข้า Zone C (<b id="wLine">–</b> mm/s)</span>
+          <span style="color:var(--zD)"><i></i>Alarm – เริ่มเข้า Zone D (<b id="aLine">–</b> mm/s)</span>
+        </div>
+      </div>
+    </div>
+  </section>
 </div>
 
-<div class="kpis">
-  <div class="kpi k-good"><div class="l">First Time Right</div><div class="v" id="k-ftr">–</div><div class="n" id="k-ftr-n"></div></div>
-  <div class="kpi k-watch"><div class="l">Rework Rate</div><div class="v" id="k-rw">–</div><div class="n" id="k-rw-n"></div></div>
-  <div class="kpi k-fail" id="kpi-na" style="cursor:pointer" title="คลิกเพื่อดูรายการที่ปรับไม่ได้"><div class="l">ปรับไม่ได้ (Cannot Adjust)</div><div class="v" id="k-na">–</div><div class="n" id="k-na-n"></div></div>
-  <div class="kpi k-blue"><div class="l">Acceptable Rate</div><div class="v" id="k-pass">–</div><div class="n" id="k-pass-n"></div></div>
-</div>
-
-<section>
-  <div class="shead"><h2>สัดส่วนงานแยกตามสถานี</h2></div>
-  <div class="panel" id="stations"></div>
-  <div class="legend">
-    <span><i class="s-ftr"></i>ผ่านครั้งแรก</span>
-    <span><i class="s-rw"></i>ปรับแก้ + วัดใหม่</span>
-    <span><i class="s-na"></i>ปรับไม่ได้</span>
-  </div>
-</section>
-
-<section>
-  <div class="shead"><h2>แนวโน้มการเสื่อมสภาพ ปีต่อปี</h2></div>
-  <p class="snote">เครื่องที่มีบันทึกทั้งปี 2025 และ 2026 เทียบค่า Before — เส้นชันขึ้นคือศูนย์เพลาเลื่อนมากขึ้น เส้นประคือขอบ Limit (100%) คลิกเส้นเพื่อกรองตารางด้านล่าง</p>
-  <div class="panel slopewrap"><svg class="slope" id="slope" viewBox="0 0 900 320" preserveAspectRatio="xMidYMid meet"></svg></div>
-</section>
-
-<section>
-  <div class="shead"><h2>แกนที่หลุด Limit บ่อยที่สุด</h2></div>
-  <p class="snote">นับจากค่า Before ของแต่ละแกนที่เกิน Limit ในรายการที่กรองอยู่ตอนนี้</p>
-  <div class="axgrid" id="axes"></div>
-</section>
-
-<section>
-  <div class="shead"><h2>รายการตรวจวัด</h2></div>
-  <p class="snote">เรียงตามชุดเครื่องจักร แล้วเรียงค่าที่เกิน Limit จากมากไปน้อยในแต่ละชุด — คลิกหัวตารางเพื่อเรียงแบบอื่น</p>
-  <div class="tbar2">
-    <input class="search" id="search" type="text" placeholder="ค้นหาเครื่องจักร, เลขที่เอกสาร, สถานี...">
-    <span class="tcount" id="tcount"></span>
-  </div>
-  <div class="tblwrap">
-    <table id="tbl">
-      <thead><tr>
-        <th data-s="date">วันที่</th>
-        <th data-s="eq">เครื่องจักร</th>
-        <th data-s="cat">ประเภทงาน</th>
-        <th data-s="bu">Before เทียบ Limit</th>
-        <th data-s="au">After เทียบ Limit</th>
-      </tr></thead>
-      <tbody id="tbody"></tbody>
-    </table>
-    <div class="pager" id="pager"></div>
-  </div>
-</section>
-
-<footer>
-  ข้อมูลดึงจาก Google Sheets ผ่าน Apps Script API <br>
-  Utilization = ค่าสัมบูรณ์สูงสุดในสี่แกน หารด้วย Limit ของแกนนั้น · 100% = อยู่ที่ขอบ Limit พอดี<br>
-  VAn = Vertical Angular · VOf = Vertical Offset · HAn = Horizontal Angular · HOf = Horizontal Offset
-</footer>
-
-</div>
-</div>
 <script>
-// ============================================================
-// ตั้งค่า API_URL เป็น URL ของ DashboardAPI.gs หลัง deploy เป็น Web App
-// (ลงท้ายด้วย /exec)
-// ============================================================
-const API_URL = 'https://script.google.com/macros/s/AKfycbyoommv4OT6wFtRQcZEoldNwd5r7y1kvaV8tOSwhnhetRLz1Tsk6UjJ9bDc6xdb8er1BQ/exec';
+/* ============================================================
+   ตั้งค่า API_URL เป็น URL ของ VibrationAPI.gs หลัง deploy เป็น Web App
+   (ลงท้ายด้วย /exec)
+   ============================================================ */
+var API_URL = 'https://script.google.com/macros/s/AKfycbxjjFaTZAjVtvjhxpFatmOtQv8wKKFTh0zkExukzZCXOrKdBKbCReBcOfO38DG3c8Bo/exec';
 
-const AX = ['V-Angular','V-Offset','H-Angular','H-Offset'];
-const CATN = {ftr:'ผ่านครั้งแรก', rework:'ปรับแก้ + วัดใหม่', noadj:'ปรับไม่ได้'};
-const PAGE_SIZE = 10;
+/* ===================== State ===================== */
+var DATA = null;          // payload จาก server
+var IDX  = new Map();     // key(station|number|machine) -> {st,no,mc,dates:Map,sorted:[]}
+var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12 };
+var ROUNDS = [];     // รอบการตรวจวัด (รวมวันที่ที่ห่างกันไม่เกิน ROUND_GAP วันเป็นรอบเดียว)
+var DATE2R = {};     // 'yyyy-mm-dd' -> ลำดับรอบ
+var ROUND_GAP = 7;   // วัน
+var condChart = null, trendChart = null;
 
-const state = {station:'ALL', year:'ALL', cat:'ALL', eq:null, sort:null, dir:-1, search:'', page:1};
-let DATA = [];
+var POINTS = ['DE-H','DE-V','DE-A','NDE-H','NDE-V','NDE-A'];
+var ZRANK  = { A:0, B:1, C:2, D:3 };
+var ZCOLOR = { A:'#1c9c6b', B:'#2176c7', C:'#e08a1e', D:'#df4b45' };
+var CONDS = [
+  { id:'stable',  label:'คงที่',                  desc:'อยู่ใน Zone A/B ต่อเนื่อง',      color:'#2176c7' },
+  { id:'better',  label:'ดีขึ้น',                  desc:'จาก Zone C/D กลับมาอยู่ A/B',   color:'#1c9c6b' },
+  { id:'worse',   label:'แย่ลง',                   desc:'จาก Zone A/B เข้าสู่ Zone C/D',  color:'#e08a1e' },
+  { id:'high',    label:'ยังอยู่ในระดับสูงต่อเนื่อง', desc:'อยู่ใน Zone C/D ต่อเนื่อง',     color:'#df4b45' }
+];
 
-const $ = s => document.querySelector(s);
-const el = (t,c,h) => { const n=document.createElement(t); if(c)n.className=c; if(h!=null)n.innerHTML=h; return n; };
-const pct = v => (v*100).toFixed(0)+'%';
-const tone = u => u > 1.0001 ? 'fail' : 'good';
-const yearOf = r => r.date.slice(0,4);
+/** ป้ายกำกับในรายการเฝ้าระวัง (ติดได้หลายป้ายพร้อมกัน ไม่ใช่การแบ่งกลุ่ม) */
+var WATCH = [
+  { id:'recur',   label:'เข้าโซนสูงซ้ำ',    color:'#df4b45',
+    rule:'เข้า Zone C/D ตั้งแต่ 2 ครั้งใน 6 รอบล่าสุด (ต้องมีข้อมูล 4 รอบขึ้นไป) หลุดออกเมื่อกลับมาอยู่ A/B ติดกัน 3 รอบ' },
+  { id:'rising',  label:'เฝ้าระวังแนวโน้ม', color:'#e08a1e',
+    rule:'ค่าสูงสุดของเครื่องเพิ่มขึ้นติดต่อกัน 3 รอบ แม้ยังอยู่ใน Zone A/B' },
+  { id:'prewarn', label:'ใกล้เส้นเตือน',    color:'#7A4FB5',
+    rule:'ค่าล่าสุดถึง 70% ของเส้น Warning แล้ว แต่ยังไม่ถึงเส้น' },
+  { id:'missed',  label:'ขาดการวัด',        color:'#5A6672',
+    rule:'เคยอยู่ Zone C/D แล้วไม่มีผลวัดต่อเนื่องตั้งแต่ 2 รอบขึ้นไป' }
+];
+var WL_WINDOW = 6, WL_MIN_ROUNDS = 4, WL_EXIT = 3, WL_RISE = 3, WL_PRE = 0.7, WL_MISS = 2;
+/** เปิด/ปิดป้าย "ขาดการวัด" บนหน้า Dashboard */
+var WL_SHOW_MISSED = false;
 
-/* ---------- load ---------- */
-async function loadData(){
-  const bar = $('#statusbar'); const txt = $('#status-text');
-  bar.className = 'statusbar loading'; bar.style.display='flex';
-  txt.textContent = 'กำลังโหลดข้อมูล...';
-  $('#dashboard-content').style.display = 'none';
+/* ===================== Utils ===================== */
+var TH_MONTH = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+function ym(d){ return d.slice(0,7); }
+function ymLabel(m){ var p = m.split('-'); return TH_MONTH[Number(p[1])-1] + ' ' + p[0]; }
+function buildRounds(dates){
+  var rs = [], cur = null, prev = null;
+  dates.slice().sort().forEach(function(d){
+    var t = Date.parse(d + 'T00:00:00Z');
+    if (prev === null || (t - prev) / 86400000 > ROUND_GAP){ cur = { dates: [] }; rs.push(cur); }
+    cur.dates.push(d);
+    prev = t;
+  });
+  var total = {};
+  rs.forEach(function(r){
+    r.start = r.dates[0];
+    r.end   = r.dates[r.dates.length-1];
+    r.month = ym(r.end);
+    total[r.month] = (total[r.month] || 0) + 1;
+  });
+  var seen = {};
+  rs.forEach(function(r, i){
+    r.idx = i;
+    seen[r.month] = (seen[r.month] || 0) + 1;
+    r.label = ymLabel(r.month) + (total[r.month] > 1 ? ' (' + seen[r.month] + ')' : '');
+    r.span  = r.start === r.end ? thDate(r.start) : thDate(r.start) + ' – ' + thDate(r.end);
+    r.dates.forEach(function(d){ DATE2R[d] = i; });
+  });
+  return rs;
+}
+function latestInRound(e, ri){
+  var r = null;
+  for (var i=0; i<e.sorted.length; i++){ if (DATE2R[e.sorted[i]] === ri) r = e.sorted[i]; }
+  return r;
+}
+function historyUpTo(e, ri){
+  return e.sorted.filter(function(d){ return DATE2R[d] <= ri; });
+}
+function roundsOf(e){
+  var seen = {}, out = [];
+  e.sorted.forEach(function(d){ var i = DATE2R[d]; if (!seen[i]){ seen[i] = 1; out.push(i); } });
+  return out.sort(function(a,b){ return a-b; });
+}
+function monthsOf(dates){
+  var seen = {}, out = [];
+  dates.forEach(function(d){ var m = ym(d); if(!seen[m]){ seen[m] = 1; out.push(m); } });
+  return out.sort();
+}
+function latestInMonth(e, month){
+  var r = null;
+  for (var i=0; i<e.sorted.length; i++){ if (ym(e.sorted[i]) === month) r = e.sorted[i]; }
+  return r;
+}
+function computeZone(mc, v, cat){
+  var L = (DATA.limits[mc] || DATA.limits.Motor)[cat];
+  return v <= L[0] ? 'A' : v <= L[1] ? 'B' : v <= L[2] ? 'C' : 'D';
+}
+function zoneOfRec(rec, cat){ return rec ? (cat === 'cat1' ? rec.z1 : rec.z2) : ''; }
+function worstZone(d, cat){ return cat === 'cat1' ? d.w1 : d.w2; }
+function limitsFor(machine, cat){ return (DATA.limits[machine] || DATA.limits.Motor)[cat]; }
+function fmt(v){ return (Math.round(v*100)/100).toFixed(2); }
+function thDate(s){ if(!s) return '–'; var p = s.split('-'); return p[2]+'/'+p[1]+'/'+p[0]; }
+function el(id){ return document.getElementById(id); }
+function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+function keyOf(r){ return r[1]+'|'+r[2]+'|'+r[3]; }
+function labelOf(e){ return e.mc+' No.'+e.no; }
+
+/* ===================== Index ===================== */
+function buildIndex(){
+  IDX = new Map();
+  DATA.rows.forEach(function(r){
+    var k = keyOf(r), e = IDX.get(k);
+    if(!e){ e = { st:r[1], no:r[2], mc:r[3], dates:new Map() }; IDX.set(k,e); }
+    var d = e.dates.get(r[0]);
+    if(!d){ d = { pts:{}, max:-1, maxPt:'', w1:'A', w2:'A' }; e.dates.set(r[0], d); }
+    var z1 = r[6] || computeZone(r[3], r[5], 'cat1');
+    var z2 = r[7] || computeZone(r[3], r[5], 'cat2');
+    d.pts[r[4]] = { v:r[5], z1:z1, z2:z2 };
+    if(r[5] > d.max){ d.max = r[5]; d.maxPt = r[4]; }
+    if(ZRANK[z1] > ZRANK[d.w1]) d.w1 = z1;
+    if(ZRANK[z2] > ZRANK[d.w2]) d.w2 = z2;
+  });
+  IDX.forEach(function(e){ e.sorted = Array.from(e.dates.keys()).sort(); });
+}
+function prevDate(e, date){
+  var p = null;
+  for (var i=0; i<e.sorted.length; i++){ if (e.sorted[i] < date) p = e.sorted[i]; else break; }
+  return p;
+}
+
+/* ===================== Boot (fetch จาก VibrationAPI.gs) ===================== */
+function boot(force){
+  el('loading').style.display = 'flex';
+  el('errBox').innerHTML = '';
 
   if (!API_URL || API_URL.indexOf('วาง_URL') === 0) {
-    bar.className = 'statusbar err';
-    bar.innerHTML = '<span>⚠ ยังไม่ได้ตั้งค่า API_URL — เปิดไฟล์นี้แล้วแก้ตัวแปร API_URL ให้เป็น URL ของ DashboardAPI.gs ที่ deploy แล้ว (ลงท้าย /exec)</span>';
+    el('loading').style.display = 'none';
+    el('errBox').innerHTML = '<div class="err">⚠ ยังไม่ได้ตั้งค่า API_URL — เปิดไฟล์นี้แล้วแก้ตัวแปร API_URL ให้เป็น URL ของ VibrationAPI.gs ที่ deploy แล้ว (ลงท้าย /exec)</div>';
     return;
   }
 
-  try {
-    const res = await fetch(API_URL + '?_=' + Date.now());
-    const json = await res.json();
-    if (json.status !== 'ok') throw new Error(json.message || 'โหลดข้อมูลไม่สำเร็จ');
-    DATA = (json.data || []).map(computeRow);
-    bar.style.display = 'none';
-    $('#dashboard-content').style.display = 'block';
-    $('#gen-time').textContent = json.generatedAt
-      ? 'อัปเดตล่าสุด ' + new Date(json.generatedAt).toLocaleString('th-TH', {dateStyle:'medium', timeStyle:'short'})
-      : '';
-    init();
-  } catch (e) {
-    bar.className = 'statusbar err';
-    bar.innerHTML = '<span>⚠ เชื่อมต่อ API ไม่สำเร็จ: ' + (e.message||'') + ' — ตรวจสอบว่า Web App deploy แบบ "Anyone" และ API_URL ถูกต้อง</span>';
+  fetch(API_URL + '?_=' + Date.now())
+    .then(function(res){ return res.json(); })
+    .then(function(json){
+      if (json.status !== 'ok') throw new Error(json.message || 'โหลดข้อมูลไม่สำเร็จ');
+      onData(json);
+    })
+    .catch(onFail);
+}
+function onFail(err){
+  el('loading').style.display = 'none';
+  el('errBox').innerHTML = '<div class="err">โหลดข้อมูลไม่สำเร็จ: ' + esc(err && err.message ? err.message : err) +
+    ' — ตรวจสอบว่า Web App deploy แบบ "Anyone" และ API_URL ถูกต้อง แล้วกดโหลดข้อมูลใหม่</div>';
+}
+function onData(payload){
+  DATA = payload;
+  el('loading').style.display = 'none';
+  if (!DATA.rows.length){
+    el('errBox').innerHTML = '<div class="err">ยังไม่มีข้อมูลในชีต VIB_V2</div>';
+    return;
   }
+  if (DATA.points && DATA.points.length) POINTS = DATA.points;
+  el('updated').textContent = 'อัปเดต ' + DATA.updatedAt;
+  DATA.months = monthsOf(DATA.dates);
+  DATE2R = {};
+  ROUNDS = buildRounds(DATA.dates);
+  buildIndex();
+  initTab1Filters();
+  initTab2Filters();
+  renderTab1();
+  renderTab2();
 }
 
-function computeRow(r){
-  const lim = i => (i % 2 === 0) ? r.la : r.lo;
-  const util = arr => Math.max(...arr.map((v,i) => Math.abs(v) / (lim(i) || 1)));
-  const bu = util(r.b), au = util(r.a);
-  const bPass = bu <= 1.0001, aPass = au <= 1.0001;
-  // "ปรับไม่ได้" = จบงานแล้วยังเกิน Limit อยู่ ไม่ว่าจะลงมือปรับ (copy=false) หรือไม่ปรับเลย (copy=true) ก็ตาม
-  // "ปรับแก้ + วัดใหม่" = ลงมือปรับแล้วสำเร็จ (After อยู่ในเกณฑ์)
-  let cat;
-  if (r.copy && bPass) cat = 'ftr';
-  else if (!r.copy && aPass) cat = 'rework';
-  else if (!aPass) cat = 'noadj';
-  else cat = 'odd';
-  return Object.assign({}, r, {bu: round3(bu), au: round3(au), bPass, aPass, cat});
+/* ===================== Tab 1 ===================== */
+function initTab1Filters(){
+  var sel = el('f1Date');
+  sel.innerHTML = ROUNDS.slice().reverse().map(function(r){
+    return '<option value="'+r.idx+'">'+r.label+'</option>';
+  }).join('');
+  sel.value = String(ROUNDS.length-1);
 }
-function round3(v){ return Math.round(v*1000)/1000; }
+function currentRound(){ return ROUNDS[Number(el('f1Date').value)] || ROUNDS[ROUNDS.length-1]; }
+function stepRound(delta){
+  var i = Number(el('f1Date').value) + delta;
+  if (i < 0 || i >= ROUNDS.length) return;
+  el('f1Date').value = String(i);
+  S.condPick = null; S.watchPick = null;
+  renderTab1();
+}
 
-/* ---------- filter chips ---------- */
-function chips(host, values, key, labels){
-  const box = $(host); box.innerHTML='';
-  ['ALL',...values].forEach(v=>{
-    const b = el('button','chip', labels && labels[v] ? labels[v] : (v==='ALL'?'ทั้งหมด':v));
-    b.type='button';
-    b.setAttribute('aria-pressed', state[key]===v);
-    b.onclick = ()=>{ state[key]=v; state.eq=null; state.page=1; render(); };
-    box.appendChild(b);
+function snapshot(ri, machineFilter, cat){
+  var out = [];
+  IDX.forEach(function(e){
+    if (machineFilter !== 'ALL' && e.mc !== machineFilter) return;
+    var dt = latestInRound(e, ri);
+    if (!dt) return;
+    var d = e.dates.get(dt);
+    out.push({ e:e, date:dt, max:d.max, maxPt:d.maxPt, pts:d.pts, zone:worstZone(d, cat) });
   });
+  return out;
 }
 
-function filtered(){
-  return DATA.filter(r =>
-    (state.station==='ALL' || r.station===state.station) &&
-    (state.year==='ALL' || yearOf(r)===state.year) &&
-    (state.cat==='ALL' || r.cat===state.cat) &&
-    (!state.eq || r.eq===state.eq) &&
-    (!state.search || (r.eq+' '+r.doc+' '+r.station).toLowerCase().includes(state.search)));
-}
+function renderTab1(){
+  var ri    = Number(el('f1Date').value);
+  var round = ROUNDS[ri];
+  var mf    = el('f1Machine').value;
+  var cat   = S.cat1;
+  var snap  = snapshot(ri, mf, cat);
 
-/* ---------- tolerance bar ---------- */
-function bar(u, mini){
-  const w = Math.min(u/2, 1)*100;
-  const t = tone(u);
-  const b = el('div','tb'+(mini?' mini':''));
-  b.appendChild(el('div','fill c-'+t)).style.width = w.toFixed(1)+'%';
-  b.appendChild(el('div','lim'));
-  const row = el('div','tbrow');
-  row.appendChild(b);
-  row.appendChild(el('div','tbval t-'+t, pct(u) + (u>2?' ▸':'')));
-  return row;
-}
-function rawVals(arr){
-  const lbl = ['VAn','VOf','HAn','HOf'];
-  const txt = arr.map((v,i)=> `<b>${lbl[i]}</b> ${v.toFixed(2)}`).join('  ·  ');
-  return el('div','rawvals', txt);
-}
+  el('f1Prev').disabled = (ri <= 0);
+  el('f1Next').disabled = (ri >= ROUNDS.length-1);
+  el('f1Last').disabled = (ri >= ROUNDS.length-1);
+  el('f1DateHint').textContent = round.span + ' · รอบที่ ' + (ri+1) + ' จาก ' + ROUNDS.length;
 
-/* ---------- stations ---------- */
-function stations(rows){
-  const host = $('#stations'); host.innerHTML='';
-  const g = {};
-  rows.forEach(r => { const s = g[r.station] = g[r.station]||{n:0,ftr:0,rework:0,noadj:0,odd:0};
-    s.n++; s[r.cat]=(s[r.cat]||0)+1; });
-  const keys = Object.keys(g).sort((a,b)=> ((g[b].rework||0)/g[b].n) - ((g[a].rework||0)/g[a].n));
-  if(!keys.length){ host.appendChild(el('div','empty','ไม่มีข้อมูลตามตัวกรองที่เลือก')); return; }
-  keys.forEach(k=>{
-    const s = g[k], row = el('div','stn');
-    row.appendChild(el('div','nm', k));
-    const st = el('div','stack');
-    [['ftr','s-ftr'],['rework','s-rw'],['noadj','s-na']].forEach(([c,cl])=>{
-      if(s[c]) st.appendChild(el('div',cl)).style.width = (s[c]/s.n*100)+'%';
-    });
-    row.appendChild(st);
-    row.appendChild(el('div','rt', s.n + ' รายการ'));
-    host.appendChild(row);
-  });
-}
+  var cnt = { A:0, B:0, C:0, D:0 };
+  snap.forEach(function(s){ cnt[s.zone]++; });
+  var total = snap.length;
+  var pct = function(n){ return total ? Math.round(n/total*100) + '%' : '–'; };
+  el('kpis').innerHTML =
+    '<div class="kpi total"><div class="t">เครื่องจักรที่วัดได้</div><div class="v">'+total+'</div>'+
+      '<div class="p">'+ (mf==='ALL'?'Pump และ Motor':mf) +' · '+ round.label +'</div></div>' +
+    ['A','B','C','D'].map(function(z){
+      var name = { A:'Good', B:'Acceptable', C:'Unsatisfactory', D:'Unacceptable' }[z];
+      return '<div class="kpi '+z.toLowerCase()+'"><div class="t"><span class="dot" style="background:'+ZCOLOR[z]+'"></span>Zone '+z+'</div>'+
+             '<div class="v">'+cnt[z]+'</div><div class="p">'+name+' · '+pct(cnt[z])+'</div></div>';
+    }).join('');
 
-/* ---------- slope (YoY, always full dataset so both-year pairs exist) ---------- */
-function slope(){
-  const svg = $('#slope'); svg.innerHTML='';
-  const byEq = {};
-  DATA.forEach(r => (byEq[r.eq] = byEq[r.eq]||[]).push(r));
-  const pairs = Object.entries(byEq)
-    .map(([eq,rs]) => { const s = rs.slice().sort((a,b)=>a.date<b.date?-1:1);
-      return {eq, a:s[0], b:s[s.length-1]}; })
-    .filter(p => yearOf(p.a) !== yearOf(p.b));
-
-  const W=900,H=320, L=112, R=W-176, T=22, B=H-32, CAP=4;
-  const y = u => B - Math.min(u,CAP)/CAP*(B-T);
-  const NS='http://www.w3.org/2000/svg';
-  const mk=(t,at)=>{const n=document.createElementNS(NS,t);for(const k in at)n.setAttribute(k,at[k]);return n;};
-
-  if(!pairs.length){
-    const t = mk('text',{x:W/2,y:H/2,'text-anchor':'middle',fill:'var(--ink3)'});
-    t.textContent='ยังไม่มีเครื่องที่มีบันทึกครบทั้งสองปี';
-    svg.appendChild(t); return;
-  }
-
-  [0,1,2,3,4].forEach(v=>{
-    svg.appendChild(mk('line',{x1:L,x2:R,y1:y(v),y2:y(v),class: v===1?'limline':'axl'}));
-    const tx = mk('text',{x:L-9,y:y(v)+3.5,'text-anchor':'end'}); tx.textContent = (v*100)+'%';
-    svg.appendChild(tx);
-  });
-  [[L,'2025'],[R,'2026']].forEach(([x,lab])=>{
-    svg.appendChild(mk('line',{x1:x,x2:x,y1:T-6,y2:B,class:'axl'}));
-    const t = mk('text',{x, y:B+18,'text-anchor':'middle','font-weight':600}); t.textContent=lab;
-    svg.appendChild(t);
-  });
-
-  const seen = {};
-  pairs.sort((p,q)=> (q.b.bu-q.a.bu) - (p.b.bu-p.a.bu)).forEach(p=>{
-    const d = p.b.bu - p.a.bu;
-    const col = Math.abs(d)<0.02 ? '#9aa5b3' : (d>0 ? 'var(--fail)' : 'var(--good)');
-    const g = mk('g',{});
-    const ln = mk('line',{x1:L,y1:y(p.a.bu),x2:R,y2:y(p.b.bu),class:'ln',stroke:col});
-    ln.onclick = ()=>{ state.eq = state.eq===p.eq?null:p.eq; state.station='ALL'; state.year='ALL'; state.cat='ALL'; state.page=1; render(); };
-    const ttl = mk('title',{}); ttl.textContent = p.eq+'  '+pct(p.a.bu)+' → '+pct(p.b.bu);
-    ln.appendChild(ttl); g.appendChild(ln);
-    g.appendChild(mk('circle',{cx:L,cy:y(p.a.bu),class:'dt',fill:col}));
-    g.appendChild(mk('circle',{cx:R,cy:y(p.b.bu),class:'dt',fill:col}));
-    let ly = y(p.b.bu);
-    while(seen[Math.round(ly/11)]) ly += 11;
-    seen[Math.round(ly/11)] = 1;
-    const lb = mk('text',{x:R+9,y:ly+3.5,fill:col});
-    lb.textContent = p.eq.replace(' Pump & Motor',' P&M').replace(' Airblower & Motor',' ABM').replace(' Pump & ECC',' ECC');
-    g.appendChild(lb);
-    svg.appendChild(g);
-  });
-}
-
-/* ---------- axes ---------- */
-function axes(rows){
-  const host = $('#axes'); host.innerHTML='';
-  AX.forEach((name,i)=>{
-    const lim = r => i%2 ? r.lo : r.la;
-    const fails = rows.filter(r => Math.abs(r.b[i])/(lim(r)||1) > 1.0001).length;
-    const mean = rows.length ? rows.reduce((s,r)=> s + Math.abs(r.b[i])/(lim(r)||1), 0)/rows.length : 0;
-    const box = el('div','axbox');
-    box.appendChild(el('div','t', name));
-    box.appendChild(el('div', 'n ' + (fails? 'hit':'ok'), fails));
-    box.appendChild(el('div','s', 'ครั้งจาก '+rows.length+' รายการ · เฉลี่ย '+pct(mean)));
-    const mini = el('div','mini');
-    const f = el('div','f'); f.style.width = Math.min(mean/2,1)*100 + '%'; f.classList.add('c-'+tone(mean));
-    mini.appendChild(f); mini.appendChild(el('div','lim'));
-    box.appendChild(mini);
-    host.appendChild(box);
-  });
-}
-
-/* ---------- table ---------- */
-function defaultSortRows(rows){
-  const grpMax = {};
-  rows.forEach(r => { grpMax[r.eq] = Math.max(grpMax[r.eq]||0, r.bu); });
-  return rows.slice().sort((a,b)=>{
-    const g = grpMax[b.eq] - grpMax[a.eq];
-    if (g !== 0) return g;
-    if (a.eq !== b.eq) return a.eq.localeCompare(b.eq,'th');
-    return b.bu - a.bu;
-  });
-}
-
-function table(rows){
-  let sorted;
-  if (state.sort) {
-    const s = state.sort, d = state.dir;
-    sorted = rows.slice().sort((a,b)=>{
-      let x=a[s], y=b[s];
-      if(typeof x==='number') return (x-y)*d;
-      return String(x).localeCompare(String(y),'th')*d;
-    });
+  var top = snap.slice().sort(function(a,b){ return b.max - a.max; }).slice(0,10);
+  el('topNote').textContent = 'ค่าสูงสุดของแต่ละเครื่อง · ' + round.label;
+  if (!top.length){
+    el('topWrap').innerHTML = '<div class="empty">ไม่มีข้อมูลในรอบที่เลือก</div>';
   } else {
-    sorted = defaultSortRows(rows);
+    el('topWrap').innerHTML =
+      '<table><thead><tr><th></th><th>Station</th><th>Machine</th><th>จุดวัด</th>'+
+      '<th style="text-align:right">Value (mm/s)</th><th>Zone</th><th>วันที่</th></tr></thead><tbody>' +
+      top.map(function(s,i){
+        return '<tr><td class="rank">'+(i+1)+'</td><td>'+esc(s.e.st)+'</td><td>'+esc(labelOf(s.e))+'</td>'+
+               '<td style="color:var(--gray-500)">'+esc(s.maxPt)+'</td>'+
+               '<td class="num">'+fmt(s.max)+'</td><td><span class="badge '+s.zone+'">'+s.zone+'</span></td>'+
+               '<td style="color:var(--gray-500)">'+thDate(s.date)+'</td></tr>';
+      }).join('') + '</tbody></table>';
   }
 
-  $('#tcount').textContent = rows.length + ' รายการ' + (state.eq? ' · '+state.eq : '');
+  var groups = { stable:[], better:[], worse:[], high:[] }, noPrev = 0;
+  snap.forEach(function(s){
+    var pd = prevDate(s.e, s.date);
+    if (!pd){ noPrev++; return; }
+    var pv = s.e.dates.get(pd);
+    var pz = worstZone(pv, cat);
+    var pHigh = (pz === 'C' || pz === 'D');
+    var lHigh = (s.zone === 'C' || s.zone === 'D');
+    var id = !pHigh && !lHigh ? 'stable' : (pHigh && !lHigh ? 'better' : (!pHigh && lHigh ? 'worse' : 'high'));
+    groups[id].push({ st:s.e.st, name:labelOf(s.e), pDate:pd, pVal:pv.max, pZone:pz, lVal:s.max, lZone:s.zone });
+  });
+  S.groups = groups;
+  el('condNote').textContent = noPrev ? (noPrev + ' เครื่องยังไม่มีผลวัดครั้งก่อน') : ('เทียบกับผลวัดครั้งก่อนหน้า');
 
-  const tb = $('#tbody'); tb.innerHTML='';
-  if(!sorted.length){
-    const tr = el('tr'); const td = el('td','empty','ไม่มีข้อมูลตามตัวกรองที่เลือก'); td.colSpan=5;
-    tr.appendChild(td); tb.appendChild(tr);
-    $('#pager').innerHTML=''; return;
-  }
+  var counts = CONDS.map(function(c){ return groups[c.id].length; });
+  drawCondChart(counts);
 
-  const pages = Math.ceil(sorted.length / PAGE_SIZE) || 1;
-  if (state.page > pages) state.page = pages;
-  const start = (state.page-1)*PAGE_SIZE;
-  const slice = sorted.slice(start, start+PAGE_SIZE);
+  el('condList').innerHTML = CONDS.map(function(c,i){
+    return '<button class="cond'+(S.condPick===c.id?' on':'')+'" data-cond="'+c.id+'">'+
+           '<span class="bar" style="background:'+c.color+'"></span>'+
+           '<span class="lb">'+c.label+'<small>'+c.desc+'</small></span>'+
+           '<span class="ct" style="color:'+c.color+'">'+counts[i]+'</span></button>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cond]'), function(b){
+    b.onclick = function(){ S.condPick = (S.condPick === b.dataset.cond) ? null : b.dataset.cond; renderTab1(); };
+  });
+  renderCondDetail();
 
-  slice.forEach(r=>{
-    const tr = el('tr','r');
-    tr.appendChild(el('td','', r.date));
-    tr.appendChild(el('td','', `<div class="eqname">${r.eq}</div><div class="docid">${r.doc}</div>`));
-    tr.appendChild(el('td')).appendChild(el('span','tag '+r.cat, CATN[r.cat]||r.cat));
-    const b = el('td'); b.style.minWidth='170px'; b.appendChild(bar(r.bu)); b.appendChild(rawVals(r.b)); tr.appendChild(b);
-    const a = el('td'); a.style.minWidth='170px';
-    if(r.copy) a.appendChild(el('span','copied','คัดลอกจาก Before'));
-    else a.appendChild(bar(r.au));
-    a.appendChild(rawVals(r.a));
-    tr.appendChild(a);
-    tb.appendChild(tr);
+  renderWatch(ri, mf, cat);
+}
+
+function renderCondDetail(){
+  var box = el('condDetail');
+  if (!S.condPick){ box.style.display = 'none'; box.innerHTML = ''; return; }
+  var c = CONDS.filter(function(x){ return x.id === S.condPick; })[0];
+  var list = (S.groups[S.condPick] || []).slice().sort(function(a,b){ return b.lVal - a.lVal; });
+  box.style.display = 'block';
+  box.innerHTML = '<h3>รายละเอียด · ' + c.label + ' (' + list.length + ' เครื่อง)</h3>' +
+    (list.length ? '<div class="scroll"><table><thead><tr><th>Station</th><th>Machine</th>'+
+      '<th style="text-align:right">ครั้งก่อน</th><th></th><th style="text-align:right">ล่าสุด</th><th></th></tr></thead><tbody>' +
+      list.map(function(m){
+        return '<tr><td>'+esc(m.st)+'</td><td>'+esc(m.name)+'</td>'+
+               '<td class="num" style="color:var(--gray-500)">'+fmt(m.pVal)+'</td>'+
+               '<td><span class="badge '+m.pZone+'">'+m.pZone+'</span></td>'+
+               '<td class="num">'+fmt(m.lVal)+'</td>'+
+               '<td><span class="badge '+m.lZone+'">'+m.lZone+'</span></td></tr>';
+      }).join('') + '</tbody></table></div>'
+      : '<div class="empty">ไม่มีเครื่องจักรในกลุ่มนี้</div>');
+}
+
+/* ---------- รายการเฝ้าระวัง ---------- */
+function buildWatch(ri, machineFilter, cat){
+  var out = [];
+
+  IDX.forEach(function(e){
+    if (machineFilter !== 'ALL' && e.mc !== machineFilter) return;
+    var hist = historyUpTo(e, ri);
+    if (!hist.length) return;
+
+    var zs = hist.map(function(d){ return worstZone(e.dates.get(d), cat); });
+    var vs = hist.map(function(d){ return e.dates.get(d).max; });
+    var lastDate = hist[hist.length-1], lastZone = zs[zs.length-1], lastVal = vs[vs.length-1];
+    var tags = [], why = {};
+
+    if (hist.length >= WL_MIN_ROUNDS){
+      var win  = zs.slice(-WL_WINDOW);
+      var hits = win.filter(function(z){ return z === 'C' || z === 'D'; }).length;
+      var exit = zs.slice(-WL_EXIT);
+      var cleared = exit.length === WL_EXIT && exit.every(function(z){ return z === 'A' || z === 'B'; });
+      if (hits >= 2 && !cleared){
+        tags.push('recur');
+        why.recur = 'เข้า Zone C/D ' + hits + ' ครั้ง ใน ' + win.length + ' รอบล่าสุด';
+      }
+    }
+
+    if (hist.length >= WL_RISE + 1){
+      var rising = true;
+      for (var i = 1; i <= WL_RISE; i++){ if (!(vs[vs.length-i] > vs[vs.length-i-1])) { rising = false; break; } }
+      if (rising){
+        tags.push('rising');
+        why.rising = vs.slice(-(WL_RISE+1)).map(fmt).join(' → ');
+      }
+    }
+
+    var warn = limitsFor(e.mc, cat)[1];
+    if (lastVal >= WL_PRE * warn && lastVal < warn){
+      tags.push('prewarn');
+      why.prewarn = 'เกณฑ์ ' + fmt(WL_PRE * warn) + ' · เส้น Warning ' + fmt(warn);
+    }
+
+    var missed = ri - DATE2R[lastDate];
+    if (WL_SHOW_MISSED && (lastZone === 'C' || lastZone === 'D') && missed >= WL_MISS){
+      tags.push('missed');
+      why.missed = 'ไม่มีผลวัด ' + missed + ' รอบ นับจาก ' + ROUNDS[DATE2R[lastDate]].label;
+    }
+
+    if (!tags.length) return;
+    out.push({ e:e, tags:tags, why:why, date:lastDate, zone:lastZone, val:lastVal,
+               rank: ZRANK[lastZone]*10 + (tags.indexOf('missed')>=0 ? 5 : 0) + tags.length });
   });
 
-  renderPager(pages, sorted.length, start);
+  out.sort(function(a,b){ return (b.rank - a.rank) || (b.val - a.val); });
+  return out;
 }
 
-function renderPager(pages, total, start){
-  const p = $('#pager');
-  if (pages <= 1) { p.innerHTML=''; return; }
-  let html = '<div>แสดง '+(start+1)+'–'+Math.min(start+PAGE_SIZE,total)+' จาก '+total+' รายการ</div><div class="pgbtns">';
-  html += `<button class="pgbtn" data-p="${state.page-1}" ${state.page<=1?'disabled':''}>‹</button>`;
-  const f = Math.max(1,state.page-2), t2 = Math.min(pages,state.page+2);
-  if (f>1) html += `<button class="pgbtn" data-p="1">1</button>` + (f>2?'<span style="padding:0 4px">…</span>':'');
-  for(let i=f;i<=t2;i++) html += `<button class="pgbtn${i===state.page?' active':''}" data-p="${i}">${i}</button>`;
-  if (t2<pages) html += (t2<pages-1?'<span style="padding:0 4px">…</span>':'') + `<button class="pgbtn" data-p="${pages}">${pages}</button>`;
-  html += `<button class="pgbtn" data-p="${state.page+1}" ${state.page>=pages?'disabled':''}>›</button></div>`;
-  p.innerHTML = html;
-  p.querySelectorAll('.pgbtn[data-p]').forEach(b=>{
-    b.onclick = ()=>{ state.page = Number(b.dataset.p); table(filtered()); };
-  });
-}
+function renderWatch(ri, machineFilter, cat){
+  var list = buildWatch(ri, machineFilter, cat);
+  S.watchList = list;
 
-/* ---------- render ---------- */
-function render(){
-  const rows = filtered();
-  const n = rows.length || 1;
-  const c = k => rows.filter(r=>r.cat===k).length;
-  $('#k-ftr').textContent  = pct(c('ftr')/n);
-  $('#k-rw').textContent   = pct(c('rework')/n);
-  $('#k-na').textContent   = pct(c('noadj')/n);
-  $('#k-pass').textContent = pct(rows.filter(r=>r.result==='Acceptable').length/n);
-  $('#k-ftr-n').textContent  = c('ftr')+' จาก '+rows.length+' รายการ';
-  $('#k-rw-n').textContent   = c('rework')+' รายการ';
-  $('#k-na-n').textContent   = c('noadj')+' รายการ';
-  $('#k-pass-n').textContent = rows.filter(r=>r.result==='Acceptable').length+' รายการ Acceptable';
+  var shownTags = WATCH.filter(function(w){ return w.id !== 'missed' || WL_SHOW_MISSED; });
+  var counts = {};
+  shownTags.forEach(function(w){ counts[w.id] = list.filter(function(x){ return x.tags.indexOf(w.id) >= 0; }).length; });
 
-  chips('#f-station', [...new Set(DATA.map(r=>r.station))].sort(), 'station');
-  chips('#f-year', [...new Set(DATA.map(yearOf))].sort(), 'year');
-  chips('#f-cat', ['ftr','rework','noadj'], 'cat', {ALL:'ทั้งหมด',...CATN});
+  el('wlNote').textContent = list.length
+    ? list.length + ' เครื่องต้องติดตาม · ย้อนหลัง ' + WL_WINDOW + ' รอบ ถึง ' + ROUNDS[ri].label
+    : 'ย้อนหลัง ' + WL_WINDOW + ' รอบ ถึง ' + ROUNDS[ri].label;
 
-  stations(rows); axes(rows); table(rows);
-}
-
-function init(){
-  const eqs = new Set(DATA.map(r=>r.eq)), sts = new Set(DATA.map(r=>r.station));
-  const ds = DATA.map(r=>r.date).filter(Boolean).sort();
-  $('#m-rec').textContent = DATA.length;
-  $('#m-eq').textContent = eqs.size;
-  $('#m-st').textContent = sts.size;
-  $('#m-range').textContent = ds.length ? (ds[0] + ' – ' + ds[ds.length-1]) : '–';
-
-  document.querySelectorAll('#tbl th').forEach(th=>{
-    th.onclick = ()=>{
-      const k = th.dataset.s;
-      state.dir = state.sort===k ? -state.dir : (k==='date'?-1:1);
-      state.sort = k; state.page = 1;
-      document.querySelectorAll('#tbl th').forEach(x=>x.querySelector('.ar')?.remove());
-      th.appendChild(el('span','ar', state.dir>0?' ↑':' ↓'));
-      table(filtered());
+  el('wlChips').innerHTML =
+    '<button class="wl-chip'+(S.watchPick?'':' on')+'" data-wl="ALL">ทั้งหมด <b>'+list.length+'</b></button>' +
+    shownTags.map(function(w){
+      return '<button class="wl-chip'+(S.watchPick===w.id?' on':'')+'" data-wl="'+w.id+'">'+
+             '<i class="sw" style="background:'+w.color+'"></i>'+w.label+' <b>'+counts[w.id]+'</b></button>';
+    }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-wl]'), function(b){
+    b.onclick = function(){
+      S.watchPick = (b.dataset.wl === 'ALL' || S.watchPick === b.dataset.wl) ? null : b.dataset.wl;
+      renderWatch(Number(el('f1Date').value), el('f1Machine').value, S.cat1);
     };
   });
 
-  $('#search').oninput = e => { state.search = e.target.value.trim().toLowerCase(); state.page = 1; render(); };
-  $('#btn-clear').onclick = () => {
-    state.station='ALL'; state.year='ALL'; state.cat='ALL'; state.eq=null;
-    state.sort=null; state.dir=-1; state.search=''; state.page=1;
-    $('#search').value='';
-    document.querySelectorAll('#tbl th .ar').forEach(x=>x.remove());
-    render();
-  };
-  $('#btn-refresh').onclick = loadData;
+  var show = S.watchPick ? list.filter(function(x){ return x.tags.indexOf(S.watchPick) >= 0; }) : list;
 
-  $('#kpi-na').onclick = () => {
-    state.cat = 'noadj'; state.eq = null; state.page = 1;
-    render();
-    document.querySelector('#tbl').scrollIntoView({behavior:'smooth', block:'start'});
-  };
+  if (!show.length){
+    el('wlWrap').innerHTML = '<div class="empty">' +
+      (list.length ? 'ไม่มีเครื่องจักรในป้ายนี้' : 'ไม่มีเครื่องจักรที่ต้องเฝ้าระวังในรอบนี้') + '</div>';
+  } else {
+    el('wlWrap').innerHTML =
+      '<table><thead><tr><th>Station</th><th>Machine</th>'+
+      '<th style="text-align:right">ค่าล่าสุด</th><th>Zone</th><th>รอบล่าสุด</th>'+
+      '<th>ป้ายกำกับ</th><th>เหตุผล</th></tr></thead><tbody>' +
+      show.map(function(x){
+        var tagHtml = x.tags.map(function(t){
+          var w = WATCH.filter(function(y){ return y.id === t; })[0];
+          return '<span class="tag '+t+'">'+w.label+'</span>';
+        }).join('');
+        var whyText = x.tags.map(function(t){ return x.why[t]; }).filter(Boolean).join(' · ');
+        return '<tr><td>'+esc(x.e.st)+'</td><td>'+esc(labelOf(x.e))+'</td>'+
+               '<td class="num">'+fmt(x.val)+'</td>'+
+               '<td><span class="badge '+x.zone+'">'+x.zone+'</span></td>'+
+               '<td style="color:var(--gray-500)">'+thDate(x.date)+'</td>'+
+               '<td class="tags">'+tagHtml+'</td>'+
+               '<td style="color:var(--gray-500);white-space:normal">'+esc(whyText)+'</td></tr>';
+      }).join('') + '</tbody></table>';
+  }
 
-  slope();
-  render();
+  el('wlLegend').innerHTML = shownTags.map(function(w){
+    return '<span class="tag '+w.id+'">'+w.label+'</span> ' + esc(w.rule);
+  }).join('<br>');
 }
 
-loadData();
+function drawCondChart(counts){
+  var ctx = el('condChart').getContext('2d');
+  if (condChart) condChart.destroy();
+  condChart = new Chart(ctx, {
+    type:'bar',
+    data:{
+      labels: CONDS.map(function(c){ return c.label; }),
+      datasets:[{
+        data: counts,
+        backgroundColor: CONDS.map(function(c){ return c.color; }),
+        borderRadius: 6, maxBarThickness: 46
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      onClick:function(evt, items){
+        if (items && items.length){ S.condPick = CONDS[items[0].index].id; renderTab1(); }
+      },
+      plugins:{
+        legend:{ display:false },
+        tooltip:{ callbacks:{ label:function(c){ return c.parsed.y + ' เครื่อง'; } } }
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3' } },
+        y:{ beginAtZero:true, ticks:{ precision:0, font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
+            grid:{ color:'#eef2f6' }, border:{ display:false } }
+      }
+    }
+  });
+}
 
+/* ===================== Tab 2 ===================== */
+function initTab2Filters(){
+  el('f2Station').innerHTML = DATA.stations.map(function(s){ return '<option>'+esc(s)+'</option>'; }).join('');
+  refreshMachineOpts();
+}
+function refreshMachineOpts(){
+  var st = el('f2Station').value, prev = el('f2Machine').value;
+  var set = {};
+  IDX.forEach(function(e){ if (e.st === st) set[e.mc] = true; });
+  var opts = Object.keys(set).sort();
+  el('f2Machine').innerHTML = opts.map(function(m){ return '<option>'+esc(m)+'</option>'; }).join('');
+  if (opts.indexOf(prev) >= 0) el('f2Machine').value = prev;
+  refreshNumberOpts();
+}
+function refreshNumberOpts(){
+  var st = el('f2Station').value, mc = el('f2Machine').value, prev = el('f2Number').value;
+  var nums = [];
+  IDX.forEach(function(e){ if (e.st === st && e.mc === mc) nums.push(e.no); });
+  nums.sort(function(a,b){ return a-b; });
+  el('f2Number').innerHTML = nums.map(function(n){ return '<option value="'+n+'">No.'+n+'</option>'; }).join('');
+  if (nums.map(String).indexOf(prev) >= 0) el('f2Number').value = prev;
+  refreshDateOpts();
+}
+function refreshDateOpts(){
+  var e = currentEntity(), prev = el('f2Date').value;
+  var rs = e ? roundsOf(e) : ROUNDS.map(function(r){ return r.idx; });
+  el('f2Date').innerHTML = rs.slice().reverse().map(function(i){
+    return '<option value="'+i+'">'+ROUNDS[i].label+'</option>';
+  }).join('');
+  if (rs.indexOf(Number(prev)) >= 0) el('f2Date').value = prev;
+  else if (rs.length) el('f2Date').value = String(rs[rs.length-1]);
+}
+function currentEntity(){
+  return IDX.get(el('f2Station').value + '|' + el('f2Number').value + '|' + el('f2Machine').value) || null;
+}
+
+function renderTab2(){
+  var e = currentEntity(), cat = S.cat2, ri = Number(el('f2Date').value);
+  var date = (e && el('f2Date').value !== '') ? latestInRound(e, ri) : null;
+  if (!e || !date){
+    el('snap').innerHTML = '<div class="empty">ไม่พบข้อมูลของเครื่องจักรที่เลือก</div>';
+    if (trendChart){ trendChart.destroy(); trendChart = null; }
+    return;
+  }
+  var L = limitsFor(e.mc, cat);
+  el('wLine').textContent = '> ' + fmt(L[1]);
+  el('aLine').textContent = '> ' + fmt(L[2]);
+
+  var d  = e.dates.get(date) || { pts:{} };
+  var pd = prevDate(e, date);
+  var pv = pd ? e.dates.get(pd) : null;
+  el('snapNote').textContent = e.st + ' · ' + labelOf(e) + ' · ' + thDate(date) +
+    ' · Zone จากคอลัมน์ ' + (cat === 'cat1' ? 'Zone_cat1' : 'Zone_cat2');
+
+  el('snap').innerHTML = POINTS.map(function(p){
+    var rec = d.pts[p], v = rec ? rec.v : undefined;
+    if (v === undefined) return '<div class="sp"><div class="n">'+p+'</div><div class="v" style="color:var(--gray-300)">–</div><div class="foot"><span class="dl">ไม่มีข้อมูล</span></div></div>';
+    var z = zoneOfRec(rec, cat), dl = '';
+    if (pv && pv.pts[p] !== undefined){
+      var diff = v - pv.pts[p].v;
+      dl = (diff >= 0 ? '▲ +' : '▼ −') + fmt(Math.abs(diff)) + ' จากครั้งก่อน';
+    } else {
+      dl = 'ไม่มีผลครั้งก่อน';
+    }
+    return '<div class="sp '+z+'"><div class="n">'+p+'</div>'+
+           '<div class="v" style="color:'+ZCOLOR[z]+'">'+fmt(v)+'<span class="u">mm/s</span></div>'+
+           '<div class="foot"><span class="dl">'+dl+'</span><span class="badge '+z+'">'+z+'</span></div></div>';
+  }).join('');
+
+  el('pointChips').innerHTML =
+    '<button class="chip'+(S.point==='ALL'?' on':'')+'" data-pt="ALL">ทุกจุดวัด</button>' +
+    POINTS.map(function(p){ return '<button class="chip'+(S.point===p?' on':'')+'" data-pt="'+p+'">'+p+'</button>'; }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-pt]'), function(b){
+    b.onclick = function(){ S.point = b.dataset.pt; renderTab2(); };
+  });
+
+  var all = e.sorted.filter(function(x){ return x <= date; });
+  el('rangeChips').innerHTML = [6,12,'ALL'].map(function(n){
+    var lb = (n === 'ALL') ? 'ทั้งหมด (' + all.length + ' รอบ)' : n + ' รอบล่าสุด';
+    var dis = (n !== 'ALL' && all.length <= n) ? ' style="display:none"' : '';
+    return '<button class="chip'+(String(S.range)===String(n)?' on':'')+'" data-rg="'+n+'"'+dis+'>'+lb+'</button>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-rg]'), function(b){
+    b.onclick = function(){ S.range = (b.dataset.rg === 'ALL') ? 'ALL' : Number(b.dataset.rg); renderTab2(); };
+  });
+
+  var dates = (S.range === 'ALL') ? all : all.slice(-S.range);
+  if (!dates.length) dates = all;
+  el('trendNote').textContent = dates.length + ' ครั้งการวัด · ' + thDate(dates[0]) + ' – ' + thDate(date) +
+    (dates.length < all.length ? ' (มีทั้งหมด ' + all.length + ' รอบ)' : '');
+  drawTrend(e, dates, L, cat);
+}
+
+function drawTrend(e, dates, L, cat){
+  var labels = dates.map(thDate);
+  var palette = ['#175a9c','#2176c7','#4a9fe0','#8b95a3','#1c9c6b','#9B59B6'];
+  var sets = [];
+
+  if (S.point === 'ALL'){
+    POINTS.forEach(function(p,i){
+      sets.push({
+        label:p,
+        data: dates.map(function(dt){ var rc = e.dates.get(dt).pts[p]; return rc ? rc.v : null; }),
+        borderColor: palette[i % palette.length], backgroundColor: palette[i % palette.length],
+        borderWidth:1.8, pointRadius:2.5, pointHoverRadius:5, tension:.25, spanGaps:true
+      });
+    });
+  } else {
+    sets.push({
+      label: S.point,
+      data: dates.map(function(dt){ var rc = e.dates.get(dt).pts[S.point]; return rc ? rc.v : null; }),
+      borderColor:'#2176c7', backgroundColor:'rgba(33,118,199,.10)', fill:true,
+      borderWidth:2.2, pointRadius:3.5, pointHoverRadius:6, tension:.25, spanGaps:true,
+      pointBackgroundColor: dates.map(function(dt){
+        var rc = e.dates.get(dt).pts[S.point];
+        return rc ? (ZCOLOR[zoneOfRec(rc, cat)] || '#e3e8ee') : '#e3e8ee';
+      })
+    });
+  }
+
+  sets.push(lineSet('Warning (Zone C)', L[1], '#e08a1e', labels.length));
+  sets.push(lineSet('Alarm (Zone D)',   L[2], '#df4b45', labels.length));
+
+  var maxData = 0;
+  sets.slice(0, S.point === 'ALL' ? POINTS.length : 1).forEach(function(s){
+    s.data.forEach(function(v){ if (v !== null && v > maxData) maxData = v; });
+  });
+
+  var ctx = el('trendChart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    type:'line',
+    data:{ labels:labels, datasets:sets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ position:'bottom', labels:{ usePointStyle:true, boxWidth:8, font:{ family:'Kanit', size:11 }, color:'#5b6675', padding:14 } },
+        tooltip:{
+          titleFont:{ family:'Kanit' }, bodyFont:{ family:'Kanit' },
+          callbacks:{ label:function(c){
+            if (c.dataset.borderDash) return c.dataset.label + ': ' + fmt(c.parsed.y);
+            if (c.parsed.y === null) return null;
+            var rc = (e.dates.get(dates[c.dataIndex]) || { pts:{} }).pts[c.dataset.label];
+            var z  = zoneOfRec(rc, cat);
+            return c.dataset.label + ': ' + fmt(c.parsed.y) + ' mm/s' + (z ? '  (Zone ' + z + ')' : '');
+          } }
+        }
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3', maxRotation:0, autoSkipPadding:14 } },
+        y:{ beginAtZero:true, suggestedMax: Math.max(maxData * 1.2, L[2] * 1.15),
+            title:{ display:true, text:'mm/s (RMS)', font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
+            ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
+            grid:{ color:'#eef2f6' }, border:{ display:false } }
+      }
+    }
+  });
+}
+
+function lineSet(label, value, color, n){
+  var arr = []; for (var i=0;i<n;i++) arr.push(value);
+  return { label:label, data:arr, borderColor:color, borderWidth:1.6, borderDash:[6,5],
+           pointRadius:0, pointHoverRadius:0, fill:false, tension:0 };
+}
+
+/* ===================== Events ===================== */
+Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
+  t.onclick = function(){
+    Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(x){ x.classList.remove('on'); });
+    Array.prototype.forEach.call(document.querySelectorAll('.page'), function(x){ x.classList.remove('on'); });
+    t.classList.add('on');
+    el(t.dataset.page).classList.add('on');
+    if (t.dataset.page === 'p2' && trendChart) trendChart.resize();
+  };
+});
+
+function bindCat(boxId, hintId, stateKey, rerender){
+  var box = el(boxId);
+  Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){
+    b.onclick = function(){
+      Array.prototype.forEach.call(box.querySelectorAll('button'), function(x){ x.classList.remove('on'); });
+      b.classList.add('on');
+      S[stateKey] = b.dataset.cat;
+      el(hintId).textContent = b.dataset.cat === 'cat1'
+        ? 'Category 1 – Critical application' : 'Category 2 – Non-hazardous liquids';
+      rerender();
+    };
+  });
+}
+bindCat('f1Cat','f1CatHint','cat1', renderTab1);
+bindCat('f2Cat','f2CatHint','cat2', renderTab2);
+
+el('f1Date').onchange    = function(){ S.condPick = null; S.watchPick = null; renderTab1(); };
+el('f1Prev').onclick     = function(){ stepRound(-1); };
+el('f1Next').onclick     = function(){ stepRound(1); };
+el('f1Last').onclick     = function(){ el('f1Date').value = String(ROUNDS.length-1); S.condPick = null; S.watchPick = null; renderTab1(); };
+el('f1Machine').onchange = function(){ S.condPick = null; renderTab1(); };
+el('f2Station').onchange = function(){ refreshMachineOpts(); renderTab2(); };
+el('f2Machine').onchange = function(){ refreshNumberOpts(); renderTab2(); };
+el('f2Number').onchange  = function(){ refreshDateOpts(); renderTab2(); };
+el('f2Date').onchange    = renderTab2;
+el('btnRefresh').onclick = function(){ boot(true); };
+
+boot(false);
 </script>
 </body>
 </html>
