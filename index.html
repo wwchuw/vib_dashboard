@@ -157,6 +157,17 @@ td.rank{color:var(--gray-500);width:34px}
 .tag.missed{background:var(--gray-100);color:var(--gray-700)}
 td.tags{white-space:normal;line-height:2}
 .wl-note{font-size:11.5px;color:var(--gray-500);margin-top:10px;line-height:1.7}
+/* ---------- ช่วงเวลาแบบกำหนดเอง ---------- */
+.rangebox{display:none;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:12px;
+  background:var(--blue-50);border:1px solid var(--blue-100);border-radius:10px;padding:10px 12px}
+.rangebox.on{display:flex}
+.rangebox .f label{font-size:11px}
+.rangebox select{min-width:120px;font-size:12.5px;padding:6px 28px 6px 10px}
+.rangebox .sep{color:var(--gray-500);font-size:12.5px;padding-bottom:8px}
+.rangebox .info{font-size:11.5px;color:var(--gray-500);padding-bottom:8px;margin-left:auto}
+.rangebox .mini{font-family:inherit;font-size:11.5px;font-weight:500;color:var(--blue-700);background:var(--white);
+  border:1px solid var(--gray-300);border-radius:100px;padding:6px 12px;cursor:pointer;transition:.15s}
+.rangebox .mini:hover{border-color:var(--blue-700);background:var(--blue-50)}
 .chart-box{position:relative;height:280px}
 .chart-box.tall{height:340px}
 .legend-note{font-size:11.5px;color:var(--gray-500);margin-top:10px;display:flex;gap:16px;flex-wrap:wrap}
@@ -299,6 +310,13 @@ td.tags{white-space:normal;line-height:2}
       <div class="body">
         <div class="chips" id="pointChips"></div>
         <div class="chips mt16" id="rangeChips"></div>
+        <div class="rangebox" id="rangeBox">
+          <div class="f"><label>ตั้งแต่รอบ</label><select id="rgFrom"></select></div>
+          <span class="sep">ถึง</span>
+          <div class="f"><label>ถึงรอบ</label><select id="rgTo"></select></div>
+          <button class="mini" id="rgAll">เลือกทั้งหมด</button>
+          <span class="info" id="rgInfo"></span>
+        </div>
         <div class="chart-box tall mt16"><canvas id="trendChart"></canvas></div>
         <div class="legend-note">
           <span style="color:var(--zC)"><i></i>Warning – เริ่มเข้า Zone C (<b id="wLine">–</b> mm/s)</span>
@@ -319,7 +337,7 @@ var API_URL = 'https://script.google.com/macros/s/AKfycbxjjFaTZAjVtvjhxpFatmOtQv
 /* ===================== State ===================== */
 var DATA = null;          // payload จาก server
 var IDX  = new Map();     // key(station|number|machine) -> {st,no,mc,dates:Map,sorted:[],seenPts:{}}
-var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12 };
+var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12, rFrom:null, rTo:null };
 var ROUNDS = [];     // รอบการตรวจวัด (รวมวันที่ที่ห่างกันไม่เกิน ROUND_GAP วันเป็นรอบเดียว)
 var DATE2R = {};     // 'yyyy-mm-dd' -> ลำดับรอบ
 var ROUND_GAP = 7;   // วัน
@@ -842,20 +860,64 @@ function renderTab2(){
     b.onclick = function(){ S.point = b.dataset.pt; renderTab2(); };
   });
 
-  var all = e.sorted.filter(function(x){ return x <= date; });
-  el('rangeChips').innerHTML = [6,12,'ALL'].map(function(n){
-    var lb = (n === 'ALL') ? 'ทั้งหมด (' + all.length + ' รอบ)' : n + ' รอบล่าสุด';
-    var dis = (n !== 'ALL' && all.length <= n) ? ' style="display:none"' : '';
-    return '<button class="chip'+(String(S.range)===String(n)?' on':'')+'" data-rg="'+n+'"'+dis+'>'+lb+'</button>';
+  /* --- ช่วงเวลาของกราฟ --- */
+  var all = e.sorted.filter(function(x){ return x <= date; });   // ใช้กับ preset
+  var full = e.sorted.slice();                                   // ใช้กับช่วงกำหนดเอง
+
+  var presets = [
+    { id:'6',      lb:'6 รอบล่าสุด'  },
+    { id:'12',     lb:'12 รอบล่าสุด' },
+    { id:'ALL',    lb:'ทั้งหมด (' + all.length + ' รอบ)' },
+    { id:'CUSTOM', lb:'กำหนดช่วงเอง' }
+  ];
+  el('rangeChips').innerHTML = presets.map(function(o){
+    var hide = (o.id !== 'ALL' && o.id !== 'CUSTOM' && all.length <= Number(o.id));
+    return '<button class="chip'+(String(S.range)===o.id?' on':'')+'" data-rg="'+o.id+'"'+
+           (hide?' style="display:none"':'')+'>'+o.lb+'</button>';
   }).join('');
   Array.prototype.forEach.call(document.querySelectorAll('[data-rg]'), function(b){
-    b.onclick = function(){ S.range = (b.dataset.rg === 'ALL') ? 'ALL' : Number(b.dataset.rg); renderTab2(); };
+    b.onclick = function(){
+      S.range = (b.dataset.rg === 'ALL' || b.dataset.rg === 'CUSTOM') ? b.dataset.rg : Number(b.dataset.rg);
+      if (S.range === 'CUSTOM' && (!S.rFrom || full.indexOf(S.rFrom) < 0)){
+        S.rFrom = full[Math.max(0, full.length - 12)];
+        S.rTo   = full[full.length - 1];
+      }
+      renderTab2();
+    };
   });
 
-  var dates = (S.range === 'ALL') ? all : all.slice(-S.range);
-  if (!dates.length) dates = all;
-  el('trendNote').textContent = dates.length + ' ครั้งการวัด · ' + thDate(dates[0]) + ' – ' + thDate(date) +
-    (dates.length < all.length ? ' (มีทั้งหมด ' + all.length + ' รอบ)' : '');
+  var dates;
+  if (S.range === 'CUSTOM'){
+    el('rangeBox').classList.add('on');
+
+    // ปรับให้ค่าที่เลือกไว้ยังอยู่ในช่วงของเครื่องนี้เสมอ
+    if (full.indexOf(S.rFrom) < 0) S.rFrom = full[0];
+    if (full.indexOf(S.rTo)   < 0) S.rTo   = full[full.length-1];
+    if (S.rFrom > S.rTo){ var t = S.rFrom; S.rFrom = S.rTo; S.rTo = t; }
+
+    var optHtml = function(sel){
+      return full.map(function(d){
+        var lb = ROUNDS[DATE2R[d]] ? ROUNDS[DATE2R[d]].label : thDate(d);
+        return '<option value="'+d+'"'+(d===sel?' selected':'')+'>'+lb+' · '+thDate(d)+'</option>';
+      }).join('');
+    };
+    el('rgFrom').innerHTML = optHtml(S.rFrom);
+    el('rgTo').innerHTML   = optHtml(S.rTo);
+    el('rgFrom').onchange  = function(){ S.rFrom = this.value; renderTab2(); };
+    el('rgTo').onchange    = function(){ S.rTo   = this.value; renderTab2(); };
+    el('rgAll').onclick    = function(){ S.rFrom = full[0]; S.rTo = full[full.length-1]; renderTab2(); };
+
+    dates = full.filter(function(d){ return d >= S.rFrom && d <= S.rTo; });
+    el('rgInfo').textContent = dates.length + ' รอบในช่วงที่เลือก (เครื่องนี้มีทั้งหมด ' + full.length + ' รอบ)';
+  } else {
+    el('rangeBox').classList.remove('on');
+    dates = (S.range === 'ALL') ? all : all.slice(-S.range);
+  }
+  if (!dates.length) dates = full;
+
+  var lastShown = dates[dates.length-1];
+  el('trendNote').textContent = dates.length + ' ครั้งการวัด · ' + thDate(dates[0]) + ' – ' + thDate(lastShown) +
+    (dates.length < full.length ? ' (เครื่องนี้มีทั้งหมด ' + full.length + ' รอบ)' : '');
   drawTrend(e, dates, L, cat);
 }
 
