@@ -237,6 +237,7 @@ td.tags{white-space:normal;line-height:2}
   <div class="tabs">
     <button class="tab on" data-page="p1">ภาพรวมทั้งหมด</button>
     <button class="tab" data-page="p2">รายเครื่องจักร</button>
+    <button class="tab" data-page="p3">เปรียบเทียบเครื่องจักร</button>
   </div>
 
   <!-- ============ TAB 1 ============ -->
@@ -329,9 +330,47 @@ td.tags{white-space:normal;line-height:2}
         </div>
         <div class="chart-box tall mt16"><canvas id="trendChart"></canvas></div>
         <div class="legend-note">
-          <span style="color:var(--zC)"><i></i>Warning – เริ่มเข้า Zone C (<b id="wLine">–</b> mm/s)</span>
-          <span style="color:var(--zD)"><i></i>Alarm – เริ่มเข้า Zone D (<b id="aLine">–</b> mm/s)</span>
+          <button class="btn" id="btnLimits2" style="align-self:center;padding:4px 11px;font-size:11.5px">ซ่อนเส้น Warning / Alarm</button>
+          <span id="lgW" style="color:var(--zC)"><i></i>Warning – เริ่มเข้า Zone C (<b id="wLine">–</b> mm/s)</span>
+          <span id="lgA" style="color:var(--zD)"><i></i>Alarm – เริ่มเข้า Zone D (<b id="aLine">–</b> mm/s)</span>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ TAB 3 ============ -->
+  <section class="page" id="p3">
+
+    <div class="filters">
+      <div class="f"><label>Station</label><select id="f3Station"></select></div>
+      <div class="f"><label>ประเภทเครื่องจักร</label><select id="f3Machine"></select></div>
+      <div class="f"><label>Number</label><select id="f3Number"></select></div>
+      <div class="f"><label>&nbsp;</label><button class="btn" id="btnCmpAdd">+ เพิ่มเข้ากราฟ</button></div>
+      <div class="f">
+        <label>ค่าที่พล็อต</label>
+        <div class="seg" id="f3Metric">
+          <button data-mt="max" class="on">ค่าสูงสุดของเครื่อง</button>
+          <button data-mt="point">จุดวัดเดียวกัน</button>
+        </div>
+      </div>
+      <div class="f" id="f3PointWrap" style="display:none"><label>จุดวัด</label><select id="f3Point"></select></div>
+      <div class="f">
+        <label>เกณฑ์ประเมิน Zone</label>
+        <div class="seg" id="f3Cat">
+          <button data-cat="cat2" class="on">Zone_cat2</button>
+          <button data-cat="cat1">Zone_cat1</button>
+        </div>
+        <div class="hint" id="f3CatHint">Category 2 – Non-hazardous liquids</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>เปรียบเทียบแนวโน้ม <span class="note" id="cmpNote"></span></h2>
+      <div class="body">
+        <div class="wl-head" id="cmpChips"></div>
+        <div class="chips" id="cmpRange"></div>
+        <div class="chart-box tall mt16"><canvas id="cmpChart"></canvas></div>
+        <div class="legend-note" id="cmpLegend"></div>
       </div>
     </div>
   </section>
@@ -343,11 +382,15 @@ td.tags{white-space:normal;line-height:2}
 /* ===================== State ===================== */
 var DATA = null;          // payload จาก server
 var IDX  = new Map();     // key(station|number|machine) -> {st,no,mc,dates:Map,sorted:[],seenPts:{}}
-var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12, rFrom:null, rTo:null };
+var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12, rFrom:null, rTo:null,
+          showLimits:true,
+          cmp:{ list:[], metric:'max', point:'DE-H', range:12, cat:'cat2', lines:true } };
+var CMP_MAX = 6;   // จำนวนเครื่องสูงสุดที่วางซ้อนกันได้ในกราฟเปรียบเทียบ
+var CMP_COLORS = ['#2176c7','#df4b45','#1c9c6b','#e08a1e','#7A4FB5','#1b2430'];
 var ROUNDS = [];     // รอบการตรวจวัด (รวมวันที่ที่ห่างกันไม่เกิน ROUND_GAP วันเป็นรอบเดียว)
 var DATE2R = {};     // 'yyyy-mm-dd' -> ลำดับรอบ
 var ROUND_GAP = 7;   // วัน
-var condChart = null, trendChart = null;
+var condChart = null, trendChart = null, cmpChart = null;
 
 var POINTS = ['DE-H','DE-V','DE-A','NDE-H','NDE-V','NDE-A'];
 var ZRANK  = { A:0, B:1, C:2, D:3 };
@@ -584,9 +627,11 @@ function onData(payload){
 
   initTab1Filters();
   initTab2Filters();
+  initTab3Filters();
   restoreUI(keep);
   renderTab1();
   renderTab2();
+  renderTab3();
 }
 
 /* ===================== Tab 1 ===================== */
@@ -1032,8 +1077,10 @@ function drawTrend(e, dates, L, cat){
     });
   }
 
-  sets.push(lineSet('Warning (Zone C)', L[1], '#e08a1e', labels.length));
-  sets.push(lineSet('Alarm (Zone D)',   L[2], '#df4b45', labels.length));
+  if (S.showLimits){
+    sets.push(lineSet('Warning (Zone C)', L[1], '#e08a1e', labels.length));
+    sets.push(lineSet('Alarm (Zone D)',   L[2], '#df4b45', labels.length));
+  }
 
   var maxData = 0;
   sets.slice(0, S.point === 'ALL' ? myPts.length : 1).forEach(function(s){
@@ -1063,7 +1110,8 @@ function drawTrend(e, dates, L, cat){
       },
       scales:{
         x:{ grid:{ display:false }, ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3', maxRotation:0, autoSkipPadding:14 } },
-        y:{ beginAtZero:true, suggestedMax: Math.max(maxData * 1.2, L[2] * 1.15),
+        y:{ beginAtZero:true,
+            suggestedMax: S.showLimits ? Math.max(maxData * 1.2, L[2] * 1.15) : maxData * 1.2,
             title:{ display:true, text:'mm/s (RMS)', font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
             ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
             grid:{ color:'#eef2f6' }, border:{ display:false } }
@@ -1078,6 +1126,162 @@ function lineSet(label, value, color, n){
            pointRadius:0, pointHoverRadius:0, fill:false, tension:0 };
 }
 
+/* ===================== Tab 3 : เปรียบเทียบเครื่องจักร ===================== */
+function initTab3Filters(){
+  el('f3Station').innerHTML = DATA.stations.map(function(s){ return '<option>'+esc(s)+'</option>'; }).join('');
+  cmpRefreshMachine();
+}
+function cmpRefreshMachine(){
+  var st = el('f3Station').value, prev = el('f3Machine').value, set = {};
+  IDX.forEach(function(e){ if (e.st === st) set[e.mc] = true; });
+  var opts = Object.keys(set).sort();
+  el('f3Machine').innerHTML = opts.map(function(m){ return '<option>'+esc(m)+'</option>'; }).join('');
+  if (opts.indexOf(prev) >= 0) el('f3Machine').value = prev;
+  cmpRefreshNumber();
+}
+function cmpRefreshNumber(){
+  var st = el('f3Station').value, mc = el('f3Machine').value, prev = el('f3Number').value, nums = [];
+  IDX.forEach(function(e){ if (e.st === st && e.mc === mc) nums.push(e.no); });
+  nums.sort(function(a,b){ return a-b; });
+  el('f3Number').innerHTML = nums.map(function(n){ return '<option value="'+n+'">No.'+n+'</option>'; }).join('');
+  if (nums.map(String).indexOf(prev) >= 0) el('f3Number').value = prev;
+}
+
+function renderTab3(){
+  var C = S.cmp;
+  C.list = C.list.filter(function(k){ return IDX.has(k); });   // เผื่อข้อมูลใหม่ไม่มีเครื่องนั้นแล้ว
+
+  /* --- ช่องเลือกจุดวัด (เฉพาะโหมดจุดวัดเดียวกัน) --- */
+  el('f3PointWrap').style.display = (C.metric === 'point') ? 'flex' : 'none';
+  if (C.metric === 'point'){
+    var seen = {};
+    C.list.forEach(function(k){ pointsOf(IDX.get(k)).forEach(function(p){ seen[p] = true; }); });
+    var ps = POINTS.filter(function(p){ return seen[p]; });
+    if (!ps.length) ps = POINTS.slice();
+    if (ps.indexOf(C.point) < 0) C.point = ps[0];
+    el('f3Point').innerHTML = ps.map(function(p){ return '<option'+(p===C.point?' selected':'')+'>'+p+'</option>'; }).join('');
+    el('f3Point').onchange = function(){ C.point = this.value; renderTab3(); };
+  }
+
+  /* --- ชิปเครื่องที่เลือก --- */
+  el('cmpNote').textContent = C.list.length + ' จาก ' + CMP_MAX + ' เครื่อง' +
+    (C.list.length >= CMP_MAX ? ' · ครบแล้ว เอาเครื่องออกก่อนจึงเพิ่มใหม่ได้' : '') +
+    (C.metric === 'point' ? ' · จุดวัด ' + C.point : ' · ค่าสูงสุดของแต่ละเครื่อง');
+
+  el('cmpChips').innerHTML = C.list.length
+    ? C.list.map(function(k,i){
+        var e = IDX.get(k);
+        return '<button class="wl-chip on" data-cmp="'+esc(k)+'" title="คลิกเพื่อเอาออกจากกราฟ">'+
+               '<i class="sw" style="background:'+CMP_COLORS[i % CMP_COLORS.length]+'"></i>'+
+               esc(e.st + ' · ' + labelOf(e)) + ' <b>×</b></button>';
+      }).join('')
+    : '<span style="font-size:12.5px;color:var(--gray-500)">ยังไม่ได้เลือกเครื่องจักร — เลือกจากช่องด้านบนแล้วกด “+ เพิ่มเข้ากราฟ”</span>';
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cmp]'), function(b){
+    b.onclick = function(){
+      C.list = C.list.filter(function(k){ return k !== b.dataset.cmp; });
+      renderTab3();
+    };
+  });
+
+  /* --- ช่วงเวลา --- */
+  var presets = [
+    { id:'6',   lb:'6 รอบล่าสุด'  },
+    { id:'12',  lb:'12 รอบล่าสุด' },
+    { id:'ALL', lb:'ทั้งหมด (' + ROUNDS.length + ' รอบ)' }
+  ];
+  el('cmpRange').innerHTML = presets.map(function(o){
+    var hide = (o.id !== 'ALL' && ROUNDS.length <= Number(o.id));
+    return '<button class="chip'+(String(C.range)===o.id?' on':'')+'" data-cr="'+o.id+'"'+
+           (hide?' style="display:none"':'')+'>'+o.lb+'</button>';
+  }).join('');
+  Array.prototype.forEach.call(document.querySelectorAll('[data-cr]'), function(b){
+    b.onclick = function(){ C.range = (b.dataset.cr === 'ALL') ? 'ALL' : Number(b.dataset.cr); renderTab3(); };
+  });
+
+  var ris = ROUNDS.map(function(r){ return r.idx; });
+  if (C.range !== 'ALL') ris = ris.slice(-Number(C.range));
+
+  /* --- เส้นเกณฑ์: แยกตามประเภทเครื่องที่เลือกอยู่ --- */
+  var types = {};
+  C.list.forEach(function(k){ types[IDX.get(k).mc] = true; });
+  var tl = Object.keys(types).sort();
+
+  el('cmpLegend').innerHTML =
+    '<button class="btn" id="btnLimits3" style="align-self:center;padding:4px 11px;font-size:11.5px">' +
+      (C.lines ? 'ซ่อนเส้น Warning / Alarm' : 'แสดงเส้น Warning / Alarm') + '</button>' +
+    (C.lines ? tl.map(function(m){
+        var L = limitsFor(m, C.cat);
+        return '<span style="color:var(--zC)"><i></i>Warning ' + esc(m) + ' (> ' + fmt(L[1]) + ' mm/s)</span>' +
+               '<span style="color:var(--zD)"><i></i>Alarm ' + esc(m) + ' (> ' + fmt(L[2]) + ' mm/s)</span>';
+      }).join('') : '');
+  el('btnLimits3').onclick = function(){ C.lines = !C.lines; renderTab3(); };
+
+  drawCmp(ris, tl);
+}
+
+function drawCmp(ris, types){
+  var C = S.cmp;
+  if (cmpChart){ cmpChart.destroy(); cmpChart = null; }
+  if (!C.list.length || !ris.length) return;
+
+  var labels = ris.map(function(i){ return ROUNDS[i].label; });
+  var sets = [], maxData = 0, lineMax = 0;
+
+  C.list.forEach(function(k,i){
+    var e = IDX.get(k), col = CMP_COLORS[i % CMP_COLORS.length];
+    var data = ris.map(function(ri){
+      var dt = latestInRound(e, ri);
+      if (!dt) return null;
+      var d = e.dates.get(dt);
+      if (C.metric === 'max') return d.max;
+      var rc = d.pts[C.point];
+      return rc ? rc.v : null;
+    });
+    data.forEach(function(v){ if (v !== null && v > maxData) maxData = v; });
+    sets.push({ label: e.st + ' ' + labelOf(e), data:data,
+                borderColor:col, backgroundColor:col,
+                borderWidth:2, pointRadius:3, pointHoverRadius:6, tension:.25, spanGaps:true });
+  });
+
+  if (C.lines){
+    types.forEach(function(m){
+      var L = limitsFor(m, C.cat);
+      sets.push(lineSet('Warning ' + m, L[1], '#e08a1e', labels.length));
+      sets.push(lineSet('Alarm ' + m,   L[2], '#df4b45', labels.length));
+      if (L[2] > lineMax) lineMax = L[2];
+    });
+  }
+
+  cmpChart = new Chart(el('cmpChart').getContext('2d'), {
+    type:'line',
+    data:{ labels:labels, datasets:sets },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ position:'bottom', labels:{ usePointStyle:true, boxWidth:8,
+                 font:{ family:'Kanit', size:11 }, color:'#5b6675', padding:12 } },
+        tooltip:{
+          titleFont:{ family:'Kanit' }, bodyFont:{ family:'Kanit' },
+          callbacks:{ label:function(c){
+            if (c.parsed.y === null) return null;
+            return c.dataset.label + ': ' + fmt(c.parsed.y) + (c.dataset.borderDash ? '' : ' mm/s');
+          } }
+        }
+      },
+      scales:{
+        x:{ grid:{ display:false }, ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3',
+            maxRotation:0, autoSkipPadding:14 } },
+        y:{ beginAtZero:true,
+            suggestedMax: C.lines ? Math.max(maxData * 1.2, lineMax * 1.15) : maxData * 1.2,
+            title:{ display:true, text:'mm/s (RMS)', font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
+            ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
+            grid:{ color:'#eef2f6' }, border:{ display:false } }
+      }
+    }
+  });
+}
+
 /* ===================== Events ===================== */
 Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
   t.onclick = function(){
@@ -1086,6 +1290,7 @@ Array.prototype.forEach.call(document.querySelectorAll('.tab'), function(t){
     t.classList.add('on');
     el(t.dataset.page).classList.add('on');
     if (t.dataset.page === 'p2' && trendChart) trendChart.resize();
+    if (t.dataset.page === 'p3' && cmpChart) cmpChart.resize();
   };
 });
 
@@ -1116,6 +1321,42 @@ el('f2Machine').onchange = function(){ refreshNumberOpts(); renderTab2(); };
 el('f2Number').onchange  = function(){ refreshDateOpts(); renderTab2(); };
 el('f2Date').onchange    = renderTab2;
 el('btnRefresh').onclick = function(){ boot(true); };
+
+/* --- ปุ่มเปิด-ปิดเส้น Warning/Alarm ของแท็บรายเครื่องจักร --- */
+el('btnLimits2').onclick = function(){
+  S.showLimits = !S.showLimits;
+  el('btnLimits2').textContent = S.showLimits ? 'ซ่อนเส้น Warning / Alarm' : 'แสดงเส้น Warning / Alarm';
+  el('lgW').style.opacity = el('lgA').style.opacity = S.showLimits ? '1' : '.35';
+  renderTab2();
+};
+
+/* --- แท็บเปรียบเทียบเครื่องจักร --- */
+el('f3Station').onchange = function(){ cmpRefreshMachine(); };
+el('f3Machine').onchange = function(){ cmpRefreshNumber(); };
+el('btnCmpAdd').onclick  = function(){
+  var k = el('f3Station').value + '|' + el('f3Number').value + '|' + el('f3Machine').value;
+  if (!IDX.has(k) || S.cmp.list.indexOf(k) >= 0 || S.cmp.list.length >= CMP_MAX) return;
+  S.cmp.list.push(k);
+  renderTab3();
+};
+Array.prototype.forEach.call(el('f3Metric').querySelectorAll('button'), function(b){
+  b.onclick = function(){
+    Array.prototype.forEach.call(el('f3Metric').querySelectorAll('button'), function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    S.cmp.metric = b.dataset.mt;
+    renderTab3();
+  };
+});
+Array.prototype.forEach.call(el('f3Cat').querySelectorAll('button'), function(b){
+  b.onclick = function(){
+    Array.prototype.forEach.call(el('f3Cat').querySelectorAll('button'), function(x){ x.classList.remove('on'); });
+    b.classList.add('on');
+    S.cmp.cat = b.dataset.cat;
+    el('f3CatHint').textContent = b.dataset.cat === 'cat1'
+      ? 'Category 1 – Critical application' : 'Category 2 – Non-hazardous liquids';
+    renderTab3();
+  };
+});
 
 /* Chart.js ใช้ defer จึงต้องรอ DOMContentLoaded ก่อน ไม่งั้นตัวแปร Chart ยังไม่มี */
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ boot(false); });
