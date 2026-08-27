@@ -369,6 +369,13 @@ td.tags{white-space:normal;line-height:2}
       <div class="body">
         <div class="wl-head" id="cmpChips"></div>
         <div class="chips" id="cmpRange"></div>
+        <div class="rangebox" id="cmpRangeBox">
+          <div class="f"><label>ตั้งแต่รอบ</label><select id="cmpFrom"></select></div>
+          <span class="sep">ถึง</span>
+          <div class="f"><label>ถึงรอบ</label><select id="cmpTo"></select></div>
+          <button class="mini" id="cmpAllRange">เลือกทั้งหมด</button>
+          <span class="info" id="cmpRgInfo"></span>
+        </div>
         <div class="chart-box tall mt16"><canvas id="cmpChart"></canvas></div>
         <div class="legend-note" id="cmpLegend"></div>
       </div>
@@ -384,7 +391,7 @@ var DATA = null;          // payload จาก server
 var IDX  = new Map();     // key(station|number|machine) -> {st,no,mc,dates:Map,sorted:[],seenPts:{}}
 var S = { cat1:'cat2', cat2:'cat2', condPick:null, point:'ALL', watchPick:null, watchList:[], range:12, rFrom:null, rTo:null,
           showLimits:true,
-          cmp:{ list:[], metric:'max', point:'DE-H', range:12, cat:'cat2', lines:true } };
+          cmp:{ list:[], metric:'max', point:'DE-H', range:12, cat:'cat2', lines:true, rFrom:null, rTo:null } };
 var CMP_MAX = 6;   // จำนวนเครื่องสูงสุดที่วางซ้อนกันได้ในกราฟเปรียบเทียบ
 var CMP_COLORS = ['#2176c7','#df4b45','#1c9c6b','#e08a1e','#7A4FB5','#1b2430'];
 var ROUNDS = [];     // รอบการตรวจวัด (รวมวันที่ที่ห่างกันไม่เกิน ROUND_GAP วันเป็นรอบเดียว)
@@ -1185,21 +1192,55 @@ function renderTab3(){
 
   /* --- ช่วงเวลา --- */
   var presets = [
-    { id:'6',   lb:'6 รอบล่าสุด'  },
-    { id:'12',  lb:'12 รอบล่าสุด' },
-    { id:'ALL', lb:'ทั้งหมด (' + ROUNDS.length + ' รอบ)' }
+    { id:'6',      lb:'6 รอบล่าสุด'  },
+    { id:'12',     lb:'12 รอบล่าสุด' },
+    { id:'ALL',    lb:'ทั้งหมด (' + ROUNDS.length + ' รอบ)' },
+    { id:'CUSTOM', lb:'กำหนดช่วงเอง' }
   ];
   el('cmpRange').innerHTML = presets.map(function(o){
-    var hide = (o.id !== 'ALL' && ROUNDS.length <= Number(o.id));
+    var hide = (o.id !== 'ALL' && o.id !== 'CUSTOM' && ROUNDS.length <= Number(o.id));
     return '<button class="chip'+(String(C.range)===o.id?' on':'')+'" data-cr="'+o.id+'"'+
            (hide?' style="display:none"':'')+'>'+o.lb+'</button>';
   }).join('');
   Array.prototype.forEach.call(document.querySelectorAll('[data-cr]'), function(b){
-    b.onclick = function(){ C.range = (b.dataset.cr === 'ALL') ? 'ALL' : Number(b.dataset.cr); renderTab3(); };
+    b.onclick = function(){
+      C.range = (b.dataset.cr === 'ALL' || b.dataset.cr === 'CUSTOM') ? b.dataset.cr : Number(b.dataset.cr);
+      if (C.range === 'CUSTOM' && C.rFrom === null){
+        C.rFrom = Math.max(0, ROUNDS.length - 12);
+        C.rTo   = ROUNDS.length - 1;
+      }
+      renderTab3();
+    };
   });
 
-  var ris = ROUNDS.map(function(r){ return r.idx; });
-  if (C.range !== 'ALL') ris = ris.slice(-Number(C.range));
+  var ris;
+  if (C.range === 'CUSTOM'){
+    el('cmpRangeBox').classList.add('on');
+
+    // กันค่าที่ค้างอยู่หลุดขอบ เผื่อข้อมูลใหม่มีจำนวนรอบเปลี่ยนไป
+    if (C.rFrom === null || C.rFrom < 0 || C.rFrom >= ROUNDS.length) C.rFrom = Math.max(0, ROUNDS.length - 12);
+    if (C.rTo   === null || C.rTo   < 0 || C.rTo   >= ROUNDS.length) C.rTo   = ROUNDS.length - 1;
+    if (C.rFrom > C.rTo){ var tmp = C.rFrom; C.rFrom = C.rTo; C.rTo = tmp; }
+
+    var optHtml = function(sel){
+      return ROUNDS.map(function(r){
+        return '<option value="'+r.idx+'"'+(r.idx===sel?' selected':'')+'>'+r.label+' · '+r.span+'</option>';
+      }).join('');
+    };
+    el('cmpFrom').innerHTML  = optHtml(C.rFrom);
+    el('cmpTo').innerHTML    = optHtml(C.rTo);
+    el('cmpFrom').onchange   = function(){ C.rFrom = Number(this.value); renderTab3(); };
+    el('cmpTo').onchange     = function(){ C.rTo   = Number(this.value); renderTab3(); };
+    el('cmpAllRange').onclick= function(){ C.rFrom = 0; C.rTo = ROUNDS.length - 1; renderTab3(); };
+
+    ris = [];
+    for (var i = C.rFrom; i <= C.rTo; i++) ris.push(i);
+    el('cmpRgInfo').textContent = ris.length + ' รอบในช่วงที่เลือก (ทั้งหมด ' + ROUNDS.length + ' รอบ)';
+  } else {
+    el('cmpRangeBox').classList.remove('on');
+    ris = ROUNDS.map(function(r){ return r.idx; });
+    if (C.range !== 'ALL') ris = ris.slice(-Number(C.range));
+  }
 
   /* --- เส้นเกณฑ์: แยกตามประเภทเครื่องที่เลือกอยู่ --- */
   var types = {};
