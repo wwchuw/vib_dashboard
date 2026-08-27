@@ -352,12 +352,20 @@ var condChart = null, trendChart = null;
 var POINTS = ['DE-H','DE-V','DE-A','NDE-H','NDE-V','NDE-A'];
 var ZRANK  = { A:0, B:1, C:2, D:3 };
 var ZCOLOR = { A:'#1c9c6b', B:'#2176c7', C:'#e08a1e', D:'#df4b45' };
+/**
+ * แบ่งเป็น 3 ระดับ: A (ปกติ) / B (เฝ้าระวัง) / C-D (สูง)
+ * แล้วเทียบระดับล่าสุดกับครั้งก่อน — ทุกเครื่องอยู่ได้กลุ่มเดียวเท่านั้น
+ */
 var CONDS = [
-  { id:'stable',  label:'คงที่',                  desc:'อยู่ใน Zone A/B ต่อเนื่อง',      color:'#2176c7' },
-  { id:'better',  label:'ดีขึ้น',                  desc:'จาก Zone C/D กลับมาอยู่ A/B',   color:'#1c9c6b' },
-  { id:'worse',   label:'แย่ลง',                   desc:'จาก Zone A/B เข้าสู่ Zone C/D',  color:'#e08a1e' },
-  { id:'high',    label:'ยังอยู่ในระดับสูงต่อเนื่อง', desc:'อยู่ใน Zone C/D ต่อเนื่อง',     color:'#df4b45' }
+  { id:'better',  label:'ดีขึ้น',        desc:'ระดับลดลงจากครั้งก่อน',        color:'#1c9c6b' },
+  { id:'stableA', label:'คงที่ (A)',     desc:'อยู่ Zone A ต่อเนื่อง',        color:'#2176c7' },
+  { id:'stableB', label:'คงที่ (B)',     desc:'อยู่ Zone B ต่อเนื่อง',        color:'#4a9fe0' },
+  { id:'worse',   label:'แย่ลง',         desc:'ระดับสูงขึ้นจากครั้งก่อน',      color:'#e08a1e' },
+  { id:'high',    label:'สูงต่อเนื่อง',   desc:'อยู่ Zone C/D ต่อเนื่อง',      color:'#df4b45' }
 ];
+
+/** ระดับของโซน: A=0 · B=1 · C และ D=2 (นับ C กับ D เป็นระดับเดียวกัน) */
+function zLevel(z){ return z === 'A' ? 0 : (z === 'B' ? 1 : 2); }
 
 /** ป้ายกำกับในรายการเฝ้าระวัง (ติดได้หลายป้ายพร้อมกัน ไม่ใช่การแบ่งกลุ่ม) */
 var WATCH = [
@@ -662,15 +670,16 @@ function renderTab1(){
       }).join('') + '</tbody></table>';
   }
 
-  var groups = { stable:[], better:[], worse:[], high:[] }, noPrev = 0;
+  var groups = { better:[], stableA:[], stableB:[], worse:[], high:[] }, noPrev = 0;
   snap.forEach(function(s){
     var pd = prevDate(s.e, s.date);
     if (!pd){ noPrev++; return; }
     var pv = s.e.dates.get(pd);
     var pz = worstZone(pv, cat);
-    var pHigh = (pz === 'C' || pz === 'D');
-    var lHigh = (s.zone === 'C' || s.zone === 'D');
-    var id = !pHigh && !lHigh ? 'stable' : (pHigh && !lHigh ? 'better' : (!pHigh && lHigh ? 'worse' : 'high'));
+    var pl = zLevel(pz), ll = zLevel(s.zone), id;
+    if (ll < pl)      id = 'better';
+    else if (ll > pl) id = 'worse';
+    else              id = (ll === 0 ? 'stableA' : (ll === 1 ? 'stableB' : 'high'));
     groups[id].push({ st:s.e.st, name:labelOf(s.e), pDate:pd, pVal:pv.max, pZone:pz, lVal:s.max, lZone:s.zone });
   });
   S.groups = groups;
@@ -846,7 +855,8 @@ function drawCondChart(counts){
         tooltip:{ callbacks:{ label:function(c){ return c.parsed.y + ' เครื่อง'; } } }
       },
       scales:{
-        x:{ grid:{ display:false }, ticks:{ font:{ family:'Kanit', size:11 }, color:'#8b95a3' } },
+        x:{ grid:{ display:false },
+            ticks:{ font:{ family:'Kanit', size:10 }, color:'#8b95a3', maxRotation:0, autoSkip:false } },
         y:{ beginAtZero:true, ticks:{ precision:0, font:{ family:'Kanit', size:11 }, color:'#8b95a3' },
             grid:{ color:'#eef2f6' }, border:{ display:false } }
       }
