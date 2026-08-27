@@ -7,7 +7,17 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://script.google.com">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
+<script>
+/* ============================================================
+   ยิง request ทันทีตั้งแต่ยังโหลดหน้าไม่เสร็จ ไม่ต้องรอ Chart.js และฟอนต์
+   แก้ API_URL ที่นี่ที่เดียว (URL ของ VibrationAPI.gs ลงท้าย /exec)
+   ============================================================ */
+var API_URL = 'https://script.google.com/macros/s/AKfycbxjjFaTZAjVtvjhxpFatmOtQv8wKKFTh0zkExukzZCXOrKdBKbCReBcOfO38DG3c8Bo/exec';
+var PRELOAD = fetch(API_URL + '?_=' + Date.now()).then(function(r){ return r.json(); });
+PRELOAD.catch(function(){});   // กัน unhandled rejection ตอนยังไม่มีใครรับผล
+</script>
 <style>
 :root{
   /* ธีมเดียวกับ Alignment Dashboard: น้ำเงิน #2176c7 / เทา / ขาว */
@@ -328,11 +338,7 @@ td.tags{white-space:normal;line-height:2}
 </div>
 
 <script>
-/* ============================================================
-   ตั้งค่า API_URL เป็น URL ของ VibrationAPI.gs หลัง deploy เป็น Web App
-   (ลงท้ายด้วย /exec)
-   ============================================================ */
-var API_URL = 'https://script.google.com/macros/s/AKfycbxjjFaTZAjVtvjhxpFatmOtQv8wKKFTh0zkExukzZCXOrKdBKbCReBcOfO38DG3c8Bo/exec';
+/* API_URL ย้ายไปประกาศไว้ใน <head> เพื่อให้เริ่มดึงข้อมูลได้เร็วที่สุด */
 
 /* ===================== State ===================== */
 var DATA = null;          // payload จาก server
@@ -459,31 +465,97 @@ function prevDate(e, date){
   return p;
 }
 
+/* ===================== Cache ในเครื่อง ===================== */
+var CACHE_KEY = 'vibdash_cache_v1';
+var PRELOAD_USED = false;
+
+function readCache(){
+  try{
+    var c = JSON.parse(localStorage.getItem(CACHE_KEY));
+    return (c && c.api === API_URL && c.payload && c.payload.rows && c.payload.rows.length) ? c.payload : null;
+  }catch(e){ return null; }
+}
+function writeCache(p){
+  try{ localStorage.setItem(CACHE_KEY, JSON.stringify({ api:API_URL, payload:p })); }catch(e){}
+}
+function sigOf(p){ return ((p && p.updatedAt) || '') + '|' + ((p && p.rows) ? p.rows.length : 0); }
+
 /* ===================== Boot (fetch จาก VibrationAPI.gs) ===================== */
 function boot(force){
-  el('loading').style.display = 'flex';
   el('errBox').innerHTML = '';
 
-  if (!API_URL || API_URL.indexOf('วาง_URL') === 0) {
-    el('loading').style.display = 'none';
-    el('errBox').innerHTML = '<div class="err">⚠ ยังไม่ได้ตั้งค่า API_URL — เปิดไฟล์นี้แล้วแก้ตัวแปร API_URL ให้เป็น URL ของ VibrationAPI.gs ที่ deploy แล้ว (ลงท้าย /exec)</div>';
-    return;
+  var cached = force ? null : readCache();
+  if (cached){
+    onData(cached);
+    el('updated').textContent = 'ข้อมูลที่บันทึกไว้ · กำลังตรวจสอบข้อมูลใหม่…';
+  } else {
+    el('loading').style.display = 'flex';
   }
 
-  fetch(API_URL + '?_=' + Date.now())
-    .then(function(res){ return res.json(); })
-    .then(function(json){
-      if (json.status !== 'ok') throw new Error(json.message || 'โหลดข้อมูลไม่สำเร็จ');
-      onData(json);
-    })
-    .catch(onFail);
+  var req;
+  if (!force && !PRELOAD_USED){
+    req = PRELOAD;
+    PRELOAD_USED = true;
+  } else {
+    // force = ผู้ใช้กดปุ่มเอง ส่ง refresh=1 ให้ฝั่ง Apps Script อ่านชีตใหม่ ไม่ใช้แคชของเซิร์ฟเวอร์
+    req = fetch(API_URL + (force ? '?refresh=1&_=' : '?_=') + Date.now()).then(function(r){ return r.json(); });
+  }
+
+  req.then(function(json){
+    if (json.status !== 'ok') throw new Error(json.message || 'โหลดข้อมูลไม่สำเร็จ');
+    writeCache(json);
+    if (cached && sigOf(json) === sigOf(cached)){
+      el('updated').textContent = 'อัปเดตล่าสุด ' + json.updatedAt;   // ข้อมูลเท่าเดิม ไม่ต้องวาดใหม่
+      return;
+    }
+    onData(json);
+  }).catch(function(err){
+    if (cached && DATA){
+      el('updated').textContent = 'อัปเดตล่าสุด ' + DATA.updatedAt + ' (ข้อมูลที่บันทึกไว้)';
+      el('errBox').innerHTML = '<div class="err">เชื่อมต่อ Google Sheets ไม่ได้ กำลังแสดงข้อมูลที่บันทึกไว้ในเครื่อง — ' +
+        esc(err && err.message ? err.message : err) + '</div>';
+    } else {
+      onFail(err);
+    }
+  });
 }
 function onFail(err){
   el('loading').style.display = 'none';
   el('errBox').innerHTML = '<div class="err">โหลดข้อมูลไม่สำเร็จ: ' + esc(err && err.message ? err.message : err) +
     ' — ตรวจสอบว่า Web App deploy แบบ "Anyone" และ API_URL ถูกต้อง แล้วกดโหลดข้อมูลใหม่</div>';
 }
+
+/* ---- เก็บ/คืนค่าตัวกรอง เวลาวาดใหม่ด้วยข้อมูลสด ---- */
+function captureUI(){
+  if (!ROUNDS.length) return null;
+  var d2 = el('f2Date'), maxR = -1;
+  for (var i=0; i<d2.options.length; i++) maxR = Math.max(maxR, Number(d2.options[i].value));
+  return {
+    d1:el('f1Date').value, latest1:(Number(el('f1Date').value) === ROUNDS.length-1),
+    st1:el('f1Station').value, mc1:el('f1Machine').value,
+    st2:el('f2Station').value, mc2:el('f2Machine').value, no2:el('f2Number').value,
+    d2:d2.value, latest2:(d2.value !== '' && Number(d2.value) === maxR)
+  };
+}
+function pick(id, val){
+  if (val === null || val === undefined || val === '') return false;
+  var s = el(id), v = String(val);
+  for (var i=0; i<s.options.length; i++){ if (s.options[i].value === v){ s.value = v; return true; } }
+  return false;
+}
+function restoreUI(k){
+  if (!k) return;
+  pick('f1Station', k.st1);
+  pick('f1Machine', k.mc1);
+  if (k.latest1) el('f1Date').value = String(ROUNDS.length-1); else pick('f1Date', k.d1);
+  if (pick('f2Station', k.st2)) refreshMachineOpts();
+  if (pick('f2Machine', k.mc2)) refreshNumberOpts();
+  if (pick('f2Number',  k.no2)) refreshDateOpts();
+  if (!k.latest2) pick('f2Date', k.d2);
+}
+
 function onData(payload){
+  var keep = captureUI();
   DATA = payload;
   el('loading').style.display = 'none';
   if (!DATA.rows.length){
@@ -504,6 +576,7 @@ function onData(payload){
 
   initTab1Filters();
   initTab2Filters();
+  restoreUI(keep);
   renderTab1();
   renderTab2();
 }
@@ -1034,7 +1107,9 @@ el('f2Number').onchange  = function(){ refreshDateOpts(); renderTab2(); };
 el('f2Date').onchange    = renderTab2;
 el('btnRefresh').onclick = function(){ boot(true); };
 
-boot(false);
+/* Chart.js ใช้ defer จึงต้องรอ DOMContentLoaded ก่อน ไม่งั้นตัวแปร Chart ยังไม่มี */
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function(){ boot(false); });
+else boot(false);
 </script>
 </body>
 </html>
