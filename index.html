@@ -14,7 +14,7 @@
    ยิง request ทันทีตั้งแต่ยังโหลดหน้าไม่เสร็จ ไม่ต้องรอ Chart.js และฟอนต์
    แก้ API_URL ที่นี่ที่เดียว (URL ของ VibrationAPI.gs ลงท้าย /exec)
    ============================================================ */
-var API_URL = 'https://script.google.com/macros/s/AKfycbxjjFaTZAjVtvjhxpFatmOtQv8wKKFTh0zkExukzZCXOrKdBKbCReBcOfO38DG3c8Bo/exec';
+var API_URL = 'https://script.google.com/macros/s/AKfycbzZqlVbMjgUlymfpG1uKWZ54-6uSeBLQ7ytoCFgcsV9GZj_yPNPvInoI76whmiyBPVS6A/exec';
 var PRELOAD = fetch(API_URL + '?_=' + Date.now()).then(function(r){ return r.json(); });
 PRELOAD.catch(function(){});   // กัน unhandled rejection ตอนยังไม่มีใครรับผล
 </script>
